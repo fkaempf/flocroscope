@@ -1,0 +1,16 @@
+# virtual.reality - Minimal config for behavior experiments
+#
+# No hardware required.  Autonomous fly walks in the arena
+# with default rendering.  All comms endpoints are disabled
+# (no FicTrac, ScanImage, LED, or Presenter needed).
+#
+# Usage:
+#   config = load_config("configs/example_minimal.yaml")
+
+arena:
+  radius_mm: 40.0
+
+autonomous:
+  enabled: true
+
+# comms disabled by default - no FicTrac/ScanImage/LED needed

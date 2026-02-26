@@ -29,6 +29,9 @@ pip install -e ".[flir]"     # FLIR/Spinnaker via RotPy
 # With GUI
 pip install -e ".[gui]"
 
+# With communications (pyzmq for LED/presenter ZMQ endpoints)
+pip install -e ".[comms]"
+
 # Development (includes pytest, ruff, mypy)
 pip install -e ".[dev]"
 
@@ -44,6 +47,7 @@ vr-fly2d      # 2D sprite fly stimulus
 vr-warp-test  # Warp circle calibration test
 vr-calibrate  # Calibration pipeline
 vr-gui        # Dear ImGui GUI
+vr-hub        # Standalone CommsHub for testing communications
 ```
 
 ## Package Structure
@@ -59,13 +63,15 @@ src/virtual_reality/
     stimulus/         # Stimulus ABC + Fly3D/FlySprite/WarpCircle + controllers
     display/          # Monitor picking, surface conversion, minimap, window
     pipeline/         # Calibration pipeline orchestrator
+    comms/            # FicTrac, ScanImage, LED, presenter endpoints + CommsHub
+    session/          # Experiment session lifecycle, trial tracking, data persistence
     gui/              # Dear ImGui application + panels
     legacy/           # Archived original scripts (read-only reference)
 ```
 
 ## Configuration
 
-Create a YAML config file or use defaults:
+Create a YAML config file or use defaults. See `configs/example.yaml` for a fully commented example with all 13 sections and their default values, or `configs/example_minimal.yaml` for a behavior-only starting point.
 
 ```python
 from virtual_reality.config.schema import VirtualRealityConfig
@@ -87,6 +93,25 @@ Key configuration parameters:
 - `camera.fov_x_deg`: Camera horizontal FOV (default: 200.0 degrees)
 - `arena.radius_mm`: Circular arena radius (default: 40.0 mm)
 - `autonomous.enabled`: Toggle autonomous vs keyboard fly control
+
+## Communications
+
+The `comms` module provides inter-process communication endpoints for closed-loop experiments. All endpoints are optional and managed by the central `CommsHub`:
+
+- **FicTrac**: Receives real-time ball tracking data (heading, speed, position) over TCP from the FicTrac treadmill system. Ball radius is configurable for radians-to-mm conversion.
+- **ScanImage**: Listens for trial events (frame clock, trial start/stop) from the ScanImage 2-photon microscopy system over TCP.
+- **LED**: Publishes optogenetics LED commands (on/off/pulse/PWM with intensity and channel control) via ZMQ PUB socket.
+- **Presenter**: Sends fly presenter positioning commands (present/retract/home) and receives status replies via ZMQ REQ/REP.
+
+Each endpoint runs a background thread with non-blocking polling. Endpoints that fail to connect are logged as warnings but do not prevent the rest of the system from running. Install the `comms` extra (`pip install -e ".[comms]"`) for ZMQ-based endpoints.
+
+## Session Management
+
+The `session` module manages experiment session lifecycles, including trial boundaries, timestamped event logging, and data persistence. Sessions automatically collect events from the CommsHub when available and save data as JSON metadata, CSV trial summaries, and per-trial event logs.
+
+## Future Integration
+
+- **Flomington**: Placeholder integration with the Flomington Drosophila stock management system for linking experimental sessions to fly stocks, crosses, and genotypes via QR code scanning and Supabase backend queries. See `comms/flomington.py` for planned integration points.
 
 ## Testing
 

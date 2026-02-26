@@ -21,6 +21,8 @@ src/virtual_reality/
     stimulus/         # Stimulus ABC + Fly3D/FlySprite/WarpCircle + controllers
     display/          # Monitor picking, surface conversion, minimap, window
     pipeline/         # Calibration pipeline orchestrator
+    comms/            # Inter-process communication endpoints + CommsHub
+    session/          # Experiment session lifecycle + trial tracking
     gui/              # Dear ImGui application + panels
     legacy/           # Archived original scripts (read-only reference)
 ```
@@ -32,6 +34,43 @@ src/virtual_reality/
 - **Camera Protocol**: `cameras.base.Camera` defines the interface (start/grab/stop)
 - **Config system**: Nested dataclasses with YAML serialization (`config.schema.VirtualRealityConfig`)
 - **Stimulus lifecycle**: `setup() -> update(dt, events) -> render() -> teardown()`
+
+### Communications (`comms/`)
+
+The `comms` module provides optional inter-process communication for closed-loop experiments. It is managed by `CommsHub`, which creates and supervises individual endpoints:
+
+- `fictrac.py` / `fictrac_controller.py`: Receives ball-tracking data (heading, speed, position) from FicTrac over TCP and converts radians to mm using the configured ball radius.
+- `scanimage.py`: Listens for trial events (frame clock, trial start/stop) from ScanImage 2-photon microscopy over TCP.
+- `led.py`: Publishes optogenetics LED commands (on/off/pulse/PWM) via ZMQ PUB socket.
+- `presenter.py`: Sends fly presenter commands (present/retract/position/home) and receives status via ZMQ REQ/REP.
+- `flomington.py`: Placeholder for future Flomington Drosophila stock management integration (Supabase backend, QR code lookup, session tagging).
+- `hub.py`: Central `CommsHub` that manages all endpoint lifecycles and exposes a single polling/sending interface for the stimulus loop. Also provides the `vr-hub` CLI entry point.
+
+Each endpoint implements the `Endpoint` ABC (`base.py`): `start()`, `stop()`, `poll()`, and a `connected` property. Endpoints run background threads and expose non-blocking `poll()` methods.
+
+### Session Management (`session/`)
+
+The `session` module manages experiment session lifecycles:
+
+- `session.py`: `Session` class that tracks trial boundaries, collects timestamped events from the CommsHub, and persists data as `session.json` (metadata), `trials.csv` (timing), and per-trial event JSON files.
+- `recorder.py`: Lower-level recording utilities for continuous data streams (FicTrac frames, stimulus state).
+
+Sessions work with any subset of hardware -- no comms, no Flomington, or no external hardware at all.
+
+### GUI Panels
+
+The Dear ImGui GUI (`gui/app.py`) composes the following panels (in `gui/panels/`):
+
+- **StimulusPanel**: Live stimulus preview and control (start/stop, fly position, heading).
+- **ConfigEditorPanel**: Edit all configuration sections at runtime.
+- **CommsPanel**: CommsHub connection status and endpoint monitoring.
+- **SessionPanel**: Session lifecycle controls (start/stop/save), trial management, and summary.
+- **CalibrationPanel**: Camera/projector calibration settings and pipeline trigger.
+- **MappingPanel**: Warp map loading, dimensions display, and structured-light pipeline trigger.
+
+### Graceful Degradation
+
+The system is designed so that every external dependency is optional. The core stimulus rendering works standalone with no hardware attached. The `CommsHub` creates only those endpoints whose port is configured to a positive value; endpoints that fail to start are logged as warnings but do not prevent the rest from running. The `Session` module works with or without a `CommsHub`. GUI panels display placeholder states when their backing subsystem is unavailable. This means a developer can run `vr-fly3d` on a laptop with no projector, no cameras, no FicTrac, and no network, and still get a fully functional autonomous fly simulation with minimap overlay.
 
 ## Build & Test Commands
 
@@ -60,6 +99,7 @@ vr-fly2d      # 2D sprite fly stimulus
 vr-warp-test  # Warp circle calibration test
 vr-calibrate  # Calibration pipeline
 vr-gui        # Dear ImGui GUI
+vr-hub        # Standalone CommsHub for testing communications
 ```
 
 ## Dependencies
