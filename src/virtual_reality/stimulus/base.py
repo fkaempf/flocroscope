@@ -9,7 +9,7 @@ Every stimulus follows the same lifecycle::
     stimulus.teardown()
 
 The :meth:`run` convenience method implements this loop with
-pygame event handling and FPS tracking.
+pygame event handling, FPS tracking, and optional session recording.
 """
 
 from __future__ import annotations
@@ -17,6 +17,10 @@ from __future__ import annotations
 import abc
 import logging
 import time
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from virtual_reality.session.session import Session
 
 logger = logging.getLogger(__name__)
 
@@ -49,11 +53,39 @@ class Stimulus(abc.ABC):
     def teardown(self) -> None:
         """Release GPU resources and close windows."""
 
-    def run(self, target_fps: int = 60) -> None:
+    def get_state(self) -> dict:
+        """Return the current stimulus state for data recording.
+
+        Override in subclasses to provide per-frame data (fly
+        position, heading, etc.).  The default returns an empty dict.
+        """
+        return {}
+
+    def run(
+        self,
+        target_fps: int = 60,
+        session: Session | None = None,
+        record: bool = True,
+    ) -> None:
         """Run the stimulus main loop.
+
+        Optionally integrates with a :class:`Session` for automatic
+        experiment tracking and per-frame data recording.
+
+        When a session is provided:
+
+        - A trial is automatically begun at start and ended at exit.
+        - :meth:`Session.collect_comms_events` is called each frame.
+        - Per-frame state is recorded to CSV (if *record* is True
+          and the stimulus implements :meth:`get_state`).
+        - The session is saved on exit.
+
+        The stimulus works identically with or without a session.
 
         Args:
             target_fps: Target frame rate (used for clock tick).
+            session: Optional session for experiment recording.
+            record: Whether to record per-frame data to CSV.
         """
         import pygame
 
@@ -61,6 +93,25 @@ class Stimulus(abc.ABC):
         clock = pygame.time.Clock()
         running = True
         last_time = time.perf_counter()
+
+        # Data recorder
+        recorder = None
+        if session is not None and record:
+            from virtual_reality.session.recorder import (
+                FrameRecorder,
+            )
+            output_dir = session.save()
+            recorder = FrameRecorder(output_dir / "frames.csv")
+            recorder.start()
+
+        # Start session trial if provided
+        if session is not None:
+            if not session.is_running:
+                session.start()
+            session.begin_trial(metadata={
+                "stimulus": type(self).__name__,
+                "target_fps": target_fps,
+            })
 
         try:
             while running:
@@ -81,7 +132,27 @@ class Stimulus(abc.ABC):
 
                 self.update(dt, events)
                 self.render()
+
+                # Collect comms events into session
+                if session is not None:
+                    session.collect_comms_events()
+
+                # Record per-frame data
+                if recorder is not None:
+                    state = self.get_state()
+                    if state:
+                        recorder.record(**state)
+
                 pygame.display.flip()
                 clock.tick(target_fps)
         finally:
+            # Stop recorder
+            if recorder is not None:
+                recorder.stop()
+
+            # End trial and save session
+            if session is not None:
+                session.end_trial()
+                session.save()
+
             self.teardown()

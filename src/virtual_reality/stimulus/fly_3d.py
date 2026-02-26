@@ -70,6 +70,8 @@ class Fly3DStimulus(Stimulus):
             config = VirtualRealityConfig()
         self.config = config
         self._running = False
+        self._comms = None
+        self._use_fictrac = False
 
     # ------------------------------------------------------------------ setup
 
@@ -392,8 +394,32 @@ class Fly3DStimulus(Stimulus):
         self._trail: deque = deque()
         self._trail_max_secs = cfg.minimap.trail_secs
 
-        # Controller
-        if cfg.autonomous.enabled:
+        # Controller — FicTrac (closed-loop), autonomous, or keyboard
+        self._comms = None
+        self._use_fictrac = False
+
+        if cfg.comms.enabled:
+            try:
+                from virtual_reality.comms.hub import CommsHub
+                from virtual_reality.comms.fictrac_controller import (
+                    FicTracController,
+                )
+                self._comms = CommsHub(cfg.comms)
+                self._comms.start_all()
+                self._controller = FicTracController(
+                    hub=self._comms,
+                    ball_radius_mm=cfg.comms.fictrac_ball_radius_mm,
+                    arena_radius=cfg.arena.radius_mm,
+                )
+                self._use_fictrac = True
+                logger.info("Using FicTrac controller (closed-loop)")
+            except Exception as exc:
+                logger.warning(
+                    "Comms init failed, falling back: %s", exc,
+                )
+                self._comms = None
+
+        if not self._use_fictrac and cfg.autonomous.enabled:
             from virtual_reality.stimulus.autonomous import (
                 AutonomousFlyController,
             )
@@ -410,7 +436,7 @@ class Fly3DStimulus(Stimulus):
             )
             self._controller.x = self._fly_x
             self._controller.y = self._fly_y
-        else:
+        elif not self._use_fictrac:
             from virtual_reality.stimulus.keyboard_control import (
                 KeyboardFlyController,
             )
@@ -479,7 +505,12 @@ class Fly3DStimulus(Stimulus):
                     logger.info("Warp: %s", self._use_warp)
 
         # Update controller
-        if cfg.autonomous.enabled:
+        if self._use_fictrac:
+            self._controller.update(dt)
+            self._fly_x = self._controller.x
+            self._fly_y = self._controller.y
+            self._fly_heading = self._controller.heading_rad
+        elif cfg.autonomous.enabled:
             self._controller.update(dt)
             self._fly_x = self._controller.x
             self._fly_y = self._controller.y
@@ -702,10 +733,14 @@ class Fly3DStimulus(Stimulus):
     # ------------------------------------------------------------ teardown
 
     def teardown(self) -> None:
-        """Release GPU resources."""
+        """Release GPU resources and stop comms."""
         from OpenGL import GL
 
         logger.info("Fly3DStimulus.teardown()")
+
+        if self._comms is not None:
+            self._comms.stop_all()
+            self._comms = None
 
         tex_list = [self._warp_tex, self._cam_tex]
         for tex in self._draw_textures:
@@ -731,13 +766,39 @@ class Fly3DStimulus(Stimulus):
 
         self._running = False
 
+    # ------------------------------------------------------------ state
+
+    def get_state(self) -> dict:
+        """Return the current stimulus state for data recording.
+
+        Returns:
+            Dict with fly position, heading, camera position,
+            scale, and controller info.
+        """
+        return {
+            "fly_x": self._fly_x,
+            "fly_y": self._fly_y,
+            "fly_heading_deg": math.degrees(self._fly_heading),
+            "cam_x": self._cam_x,
+            "cam_y": self._cam_y,
+            "cam_height": self._cam_height,
+            "cam_heading_deg": math.degrees(self._cam_heading),
+            "fly_scale": self._fly_scale_current,
+            "use_warp": self._use_warp,
+            "controller": (
+                "fictrac" if self._use_fictrac
+                else "autonomous" if self.config.autonomous.enabled
+                else "keyboard"
+            ),
+        }
+
 
 def main() -> None:
     """CLI entry point for the 3D fly stimulus."""
+    import sys
+
     from virtual_reality.config.loader import load_config
     from virtual_reality.config.schema import _resolve_default_paths
-
-    import sys
 
     if len(sys.argv) > 1:
         config = load_config(sys.argv[1])
@@ -745,4 +806,16 @@ def main() -> None:
         config = _resolve_default_paths()
 
     stimulus = Fly3DStimulus(config=config)
-    stimulus.run()
+
+    # Create session for experiment tracking
+    from virtual_reality.session.session import Session
+    session = Session(
+        config=config,
+        comms=stimulus._comms,
+        stimulus_type="Fly3DStimulus",
+    )
+
+    stimulus.run(
+        target_fps=config.display.target_fps,
+        session=session,
+    )

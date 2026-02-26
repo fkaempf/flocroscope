@@ -275,6 +275,7 @@ class WarpCircleStimulus(Stimulus):
         x_center = self._x_offset + self._amplitude * math.sin(
             2.0 * math.pi * self._freq_hz * t,
         )
+        self._x_center = x_center
 
         # Pass 1: Draw circle to offscreen FBO
         GL.glBindFramebuffer(GL.GL_FRAMEBUFFER, self._fbo)
@@ -315,6 +316,28 @@ class WarpCircleStimulus(Stimulus):
         GL.glDrawArrays(GL.GL_TRIANGLE_STRIP, 0, 4)
         GL.glBindVertexArray(0)
 
+    def get_state(self) -> dict:
+        """Return the current stimulus state for data recording.
+
+        Returns a dict with the circle position, radius, pause state,
+        warp toggle, and oscillation frequency.  The positional keys
+        (``circle_x``, ``circle_y``, ``radius``) are only present
+        after :meth:`setup` has been called — before that they have
+        not been computed yet.
+        """
+        state: dict = {
+            "paused": self._paused,
+            "use_warp": self._use_warp,
+            "freq_hz": self._freq_hz,
+        }
+        if hasattr(self, "_x_center"):
+            state["circle_x"] = self._x_center
+        if hasattr(self, "_y_center"):
+            state["circle_y"] = self._y_center
+        if hasattr(self, "_radius"):
+            state["radius"] = self._radius
+        return state
+
     def teardown(self) -> None:
         """Release GPU resources."""
         from OpenGL import GL
@@ -337,10 +360,10 @@ class WarpCircleStimulus(Stimulus):
 
 def main() -> None:
     """CLI entry point for the warp circle test."""
+    import sys
+
     from virtual_reality.config.loader import load_config
     from virtual_reality.config.schema import _resolve_default_paths
-
-    import sys
 
     if len(sys.argv) > 1:
         config = load_config(sys.argv[1])
@@ -348,4 +371,4 @@ def main() -> None:
         config = _resolve_default_paths()
 
     stimulus = WarpCircleStimulus(config=config)
-    stimulus.run()
+    stimulus.run(target_fps=config.display.target_fps)

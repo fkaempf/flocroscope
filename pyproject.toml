@@ -24,13 +24,14 @@ dependencies = [
 alvium = ["harvesters>=1.4"]
 flir = ["rotpy>=0.3"]
 gui = ["imgui[pygame]>=2.0"]
+comms = ["pyzmq>=25.0"]
 dev = [
     "pytest>=7.0",
     "pytest-cov",
     "ruff",
     "mypy",
 ]
-all = ["virtual-reality[alvium,flir,gui,dev]"]
+all = ["virtual-reality[alvium,flir,gui,comms,dev]"]
 
 [project.scripts]
 vr-fly3d = "virtual_reality.stimulus.fly_3d:main"
@@ -38,6 +39,7 @@ vr-fly2d = "virtual_reality.stimulus.fly_sprite:main"
 vr-calibrate = "virtual_reality.pipeline.calibration_pipeline:main"
 vr-warp-test = "virtual_reality.stimulus.warp_circle:main"
 vr-gui = "virtual_reality.gui.app:main"
+vr-hub = "virtual_reality.comms.hub:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]

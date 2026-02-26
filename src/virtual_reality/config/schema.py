@@ -251,6 +251,57 @@ class CalibrationConfig:
 
 
 @dataclass
+class CommsConfig:
+    """Inter-process communication settings.
+
+    All endpoints are optional.  Set a port to ``0`` to disable
+    that endpoint.  The system runs normally with any subset of
+    endpoints active.
+
+    Attributes:
+        enabled: Master switch for the comms subsystem.
+        fictrac_host: FicTrac TCP host address.
+        fictrac_port: FicTrac socket port (0 = disabled).
+        fictrac_ball_radius_mm: Physical ball radius for rad → mm
+            conversion.
+        scanimage_port: ScanImage TCP server port (0 = disabled).
+        led_port: Optogenetics LED ZMQ PUB port (0 = disabled).
+        presenter_host: Fly presenter controller host.
+        presenter_port: Fly presenter ZMQ REQ port (0 = disabled).
+        log_messages: Whether to log individual messages at DEBUG.
+    """
+
+    enabled: bool = False
+    fictrac_host: str = "localhost"
+    fictrac_port: int = 2000
+    fictrac_ball_radius_mm: float = 4.5
+    scanimage_port: int = 5000
+    led_port: int = 5001
+    presenter_host: str = "localhost"
+    presenter_port: int = 5002
+    log_messages: bool = False
+
+
+@dataclass
+class SessionConfig:
+    """Experiment session settings.
+
+    Attributes:
+        output_dir: Directory for session data output.
+        auto_save: Whether to auto-save session events.
+        log_fictrac: Whether to log raw FicTrac data.
+        log_stimulus: Whether to log stimulus state each frame.
+        log_interval_ms: Minimum interval between log entries in ms.
+    """
+
+    output_dir: str = "data/sessions"
+    auto_save: bool = True
+    log_fictrac: bool = True
+    log_stimulus: bool = True
+    log_interval_ms: float = 16.67  # ~60 Hz
+
+
+@dataclass
 class VirtualRealityConfig:
     """Top-level configuration composing all subsystem configs.
 
@@ -266,6 +317,8 @@ class VirtualRealityConfig:
         display: Display and window settings.
         scaling: Physical-to-pixel scaling parameters.
         calibration: Calibration pipeline settings.
+        comms: Inter-process communication settings.
+        session: Experiment session settings.
     """
 
     arena: ArenaConfig = field(default_factory=ArenaConfig)
@@ -279,6 +332,8 @@ class VirtualRealityConfig:
     display: DisplayConfig = field(default_factory=DisplayConfig)
     scaling: ScalingConfig = field(default_factory=ScalingConfig)
     calibration: CalibrationConfig = field(default_factory=CalibrationConfig)
+    comms: CommsConfig = field(default_factory=CommsConfig)
+    session: SessionConfig = field(default_factory=SessionConfig)
 
 
 def _resolve_default_paths() -> VirtualRealityConfig:

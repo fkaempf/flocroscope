@@ -86,6 +86,18 @@ class TestWarpCircleStimulus:
         s = WarpCircleStimulus()
         assert s._paused is False
 
+    def test_get_state_before_setup(self) -> None:
+        """get_state() returns base keys before setup(); positional keys absent."""
+        s = WarpCircleStimulus(freq_hz=0.5)
+        state = s.get_state()
+        assert state["paused"] is False
+        assert state["use_warp"] is True
+        assert state["freq_hz"] == 0.5
+        # Positional keys are not available until setup()/render()
+        assert "circle_x" not in state
+        assert "circle_y" not in state
+        assert "radius" not in state
+
     @pytest.mark.gpu
     def test_lifecycle(self) -> None:
         s = WarpCircleStimulus()

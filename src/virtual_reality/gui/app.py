@@ -1,8 +1,9 @@
 """Main Dear ImGui application window.
 
-Provides a unified GUI that integrates stimulus control,
-calibration, and mapping into a single application with a menu bar
-and dockable panels.
+Provides a unified GUI that integrates stimulus control, session
+management, configuration editing, calibration, mapping, and
+communications into a single application with a menu bar and
+dockable panels.
 
 Requires ``imgui[pygame]>=2.0``.
 """
@@ -10,6 +11,11 @@ Requires ``imgui[pygame]>=2.0``.
 from __future__ import annotations
 
 import logging
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from virtual_reality.comms.hub import CommsHub
+    from virtual_reality.config.schema import VirtualRealityConfig
 
 logger = logging.getLogger(__name__)
 
@@ -18,11 +24,33 @@ class VirtualRealityApp:
     """Main GUI application.
 
     Manages the pygame/OpenGL window, Dear ImGui context, and
-    panel layout.
+    panel layout.  All panels degrade gracefully when their
+    backing subsystem (comms, session, etc.) is not configured.
+
+    Args:
+        config: Optional configuration.  If provided, enables
+            live parameter editing and comms integration.
     """
 
-    def __init__(self) -> None:
+    def __init__(
+        self, config: VirtualRealityConfig | None = None,
+    ) -> None:
         self._running = False
+        if config is None:
+            from virtual_reality.config.schema import (
+                VirtualRealityConfig,
+            )
+            config = VirtualRealityConfig()
+        self._config = config
+        self._comms: CommsHub | None = None
+
+        # Panel visibility flags
+        self._show_stimulus = True
+        self._show_session = True
+        self._show_config = True
+        self._show_comms = True
+        self._show_calibration = False
+        self._show_mapping = False
 
     def run(self) -> None:
         """Launch the GUI main loop."""
@@ -52,6 +80,42 @@ class VirtualRealityApp:
         self._running = True
         clock = pygame.time.Clock()
 
+        # Start comms if configured
+        if self._config.comms.enabled:
+            try:
+                from virtual_reality.comms.hub import CommsHub
+                self._comms = CommsHub(self._config.comms)
+                self._comms.start_all()
+                logger.info("CommsHub started from GUI")
+            except Exception as exc:
+                logger.warning("Failed to start comms: %s", exc)
+                self._comms = None
+
+        # Create panels
+        from virtual_reality.gui.panels.stimulus import (
+            StimulusPanel,
+        )
+        from virtual_reality.gui.panels.session import (
+            SessionPanel,
+        )
+        from virtual_reality.gui.panels.config_editor import (
+            ConfigEditorPanel,
+        )
+        from virtual_reality.gui.panels.comms import CommsPanel
+        from virtual_reality.gui.panels.calibration import (
+            CalibrationPanel,
+        )
+        from virtual_reality.gui.panels.mapping import MappingPanel
+
+        self._stimulus_panel = StimulusPanel(self._config)
+        self._session_panel = SessionPanel(self._config)
+        self._config_panel = ConfigEditorPanel(self._config)
+        self._comms_panel = CommsPanel(self._comms)
+        self._calibration_panel = CalibrationPanel(
+            self._config.calibration,
+        )
+        self._mapping_panel = MappingPanel(self._config.warp)
+
         logger.info("GUI started")
 
         try:
@@ -75,6 +139,8 @@ class VirtualRealityApp:
                 pygame.display.flip()
                 clock.tick(60)
         finally:
+            if self._comms is not None:
+                self._comms.stop_all()
             renderer.shutdown()
             pygame.quit()
             logger.info("GUI closed")
@@ -90,35 +156,52 @@ class VirtualRealityApp:
                     self._running = False
                 imgui.end_menu()
             if imgui.begin_menu("Panels"):
-                imgui.menu_item("Stimulus", None, True)
-                imgui.menu_item("Calibration", None, True)
-                imgui.menu_item("Mapping", None, True)
+                _, self._show_stimulus = imgui.menu_item(
+                    "Stimulus", None, self._show_stimulus,
+                )
+                _, self._show_session = imgui.menu_item(
+                    "Session", None, self._show_session,
+                )
+                _, self._show_config = imgui.menu_item(
+                    "Configuration", None, self._show_config,
+                )
+                _, self._show_comms = imgui.menu_item(
+                    "Communications", None, self._show_comms,
+                )
+                _, self._show_calibration = imgui.menu_item(
+                    "Calibration", None, self._show_calibration,
+                )
+                _, self._show_mapping = imgui.menu_item(
+                    "Mapping", None, self._show_mapping,
+                )
                 imgui.end_menu()
             imgui.end_main_menu_bar()
 
     def _draw_panels(self) -> None:
-        """Draw all GUI panels."""
+        """Draw all visible panels."""
         import imgui
 
-        imgui.begin("Stimulus Control")
-        imgui.text("Stimulus controls will appear here.")
-        imgui.text("Use CLI entry points for now:")
-        imgui.bullet_text("vr-fly3d")
-        imgui.bullet_text("vr-fly2d")
-        imgui.bullet_text("vr-warp-test")
-        imgui.end()
-
-        imgui.begin("Calibration")
-        imgui.text("Calibration pipeline controls.")
-        imgui.text("Requires camera + projector hardware.")
-        imgui.end()
-
-        imgui.begin("Mapping")
-        imgui.text("Projector-camera mapping controls.")
-        imgui.end()
-
+        if self._show_stimulus:
+            self._stimulus_panel.draw()
+        if self._show_session:
+            self._session_panel.draw()
+        if self._show_config:
+            self._config_panel.draw()
+        if self._show_comms:
+            self._comms_panel.draw()
+        if self._show_calibration:
+            self._calibration_panel.draw()
+        if self._show_mapping:
+            self._mapping_panel.draw()
 
 def main() -> None:
     """CLI entry point for the GUI."""
-    app = VirtualRealityApp()
+    import sys
+
+    config = None
+    if len(sys.argv) > 1:
+        from virtual_reality.config.loader import load_config
+        config = load_config(sys.argv[1])
+
+    app = VirtualRealityApp(config=config)
     app.run()

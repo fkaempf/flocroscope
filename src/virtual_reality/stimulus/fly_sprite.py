@@ -422,13 +422,25 @@ class FlySpriteStimulus(Stimulus):
         logger.info("FlySpriteStimulus.teardown()")
         pygame.quit()
 
+    def get_state(self) -> dict:
+        """Return the current stimulus state for data recording."""
+        return {
+            "fly_x": self._fly_x,
+            "fly_y": self._fly_y,
+            "fly_heading_deg": self._fly_heading,
+            "controller": (
+                "autonomous" if self.config.autonomous.enabled
+                else "keyboard"
+            ),
+        }
+
 
 def main() -> None:
     """CLI entry point for the 2D fly stimulus."""
+    import sys
+
     from virtual_reality.config.loader import load_config
     from virtual_reality.config.schema import _resolve_default_paths
-
-    import sys
 
     if len(sys.argv) > 1:
         config = load_config(sys.argv[1])
@@ -436,4 +448,14 @@ def main() -> None:
         config = _resolve_default_paths()
 
     stimulus = FlySpriteStimulus(config=config)
-    stimulus.run()
+
+    from virtual_reality.session.session import Session
+    session = Session(
+        config=config,
+        stimulus_type="FlySpriteStimulus",
+    )
+
+    stimulus.run(
+        target_fps=config.display.target_fps,
+        session=session,
+    )

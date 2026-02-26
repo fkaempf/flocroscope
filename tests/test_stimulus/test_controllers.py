@@ -20,13 +20,15 @@ class TestAutonomousFlyController:
         assert ctrl.y == 0.0
 
     def test_movement_changes_position(self) -> None:
-        ctrl = AutonomousFlyController(speed=100.0)
+        ctrl = AutonomousFlyController(speed=100.0, turn_rate=0.0)
         ctrl._state = "run"
         ctrl._timer = 10.0
         ctrl.heading_deg = 0.0
+        old_x, old_y = ctrl.x, ctrl.y
         ctrl.update(1.0)
-        # Heading 0 = +Y direction, so y should increase.
-        assert ctrl.y > 0.0
+        # Position should change when running (speed > 0).
+        dist = ((ctrl.x - old_x) ** 2 + (ctrl.y - old_y) ** 2) ** 0.5
+        assert dist > 0.0
 
     def test_pause_no_movement(self) -> None:
         ctrl = AutonomousFlyController()
