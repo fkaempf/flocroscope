@@ -38,9 +38,9 @@ class VirtualRealityApp:
         self._running = False
         if config is None:
             from virtual_reality.config.schema import (
-                VirtualRealityConfig,
+                _resolve_default_paths,
             )
-            config = VirtualRealityConfig()
+            config = _resolve_default_paths()
         self._config = config
         self._comms: CommsHub | None = None
 
@@ -70,13 +70,15 @@ class VirtualRealityApp:
 
         pygame.init()
         size = (1280, 720)
-        pygame.display.set_mode(
+        screen = pygame.display.set_mode(
             size,
             pygame.DOUBLEBUF | pygame.OPENGL | pygame.RESIZABLE,
         )
         pygame.display.set_caption("Virtual Reality")
 
         imgui.create_context()
+        io = imgui.get_io()
+        io.display_size = float(size[0]), float(size[1])
         renderer = PygameRenderer()
         self._running = True
         clock = pygame.time.Clock()
@@ -268,3 +270,7 @@ def main() -> None:
 
     app = VirtualRealityApp(config=config)
     app.run()
+
+
+if __name__ == "__main__":
+    main()

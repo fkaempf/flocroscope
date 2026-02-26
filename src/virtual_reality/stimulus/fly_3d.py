@@ -19,9 +19,11 @@ import numpy as np
 
 from virtual_reality.config.schema import VirtualRealityConfig
 from virtual_reality.math_utils.arena import (
+    clamp_scale_for_near_plane,
     clamp_to_arena,
     compute_camera_fly_distance_mm,
-    enforce_min_distance,
+    compute_min_cam_fly_dist_3d,
+    enforce_min_distance_3d,
 )
 from virtual_reality.math_utils.geometry import compute_light_dirs
 from virtual_reality.math_utils.transforms import (
@@ -97,15 +99,43 @@ class Fly3DStimulus(Stimulus):
         cfg = self.config
         logger.info("Fly3DStimulus.setup() - initialising")
 
-        # -- Load warp map --
-        warp = load_warp_map(cfg.warp.mapx_path, cfg.warp.mapy_path)
-        warp_uv = warp_to_gl_texture(warp)
-        self._cam_w = warp.cam_w
-        self._cam_h = warp.cam_h
-        self._proj_w = warp.proj_w
-        self._proj_h = warp.proj_h
+        # -- Load warp map (optional) --
+        _have_warp = bool(cfg.warp.mapx_path and cfg.warp.mapy_path)
+        if _have_warp:
+            try:
+                warp = load_warp_map(
+                    cfg.warp.mapx_path, cfg.warp.mapy_path,
+                )
+                warp_uv = warp_to_gl_texture(warp)
+                self._cam_w = warp.cam_w
+                self._cam_h = warp.cam_h
+                self._proj_w = warp.proj_w
+                self._proj_h = warp.proj_h
+            except Exception as exc:
+                logger.warning("Could not load warp maps: %s", exc)
+                _have_warp = False
+
+        if not _have_warp:
+            logger.info(
+                "No warp maps configured — running without warp",
+            )
+            self._cam_w = cfg.calibration.proj_w
+            self._cam_h = cfg.calibration.proj_h
+            self._proj_w = cfg.calibration.proj_w
+            self._proj_h = cfg.calibration.proj_h
+            # Identity warp: each pixel maps to itself (normalised UVs)
+            warp_uv = np.zeros(
+                (self._proj_h, self._proj_w, 2), dtype=np.float32,
+            )
+            warp_uv[:, :, 0] = np.linspace(
+                0, 1, self._proj_w, dtype=np.float32,
+            )[np.newaxis, :]
+            warp_uv[:, :, 1] = np.linspace(
+                0, 1, self._proj_h, dtype=np.float32,
+            )[:, np.newaxis]
 
         # -- Pygame window on projector monitor --
+        pygame.init()
         mon = pick_monitor(
             self._proj_w, self._proj_h, which=cfg.display.monitor,
         )
@@ -274,6 +304,7 @@ class Fly3DStimulus(Stimulus):
             cfg.fly_model.base_scale
             * cfg.fly_model.phys_length_mm / longest
         )
+        self._fly_bounding_radius = mesh.bounding_radius
 
         # -- Fly mesh VAO/VBO/EBO --
         self._fly_vao = GL.glGenVertexArrays(1)
@@ -352,6 +383,24 @@ class Fly3DStimulus(Stimulus):
 
         self._z_near = 1.0
         self._z_far = 10.0 * cfg.arena.radius_mm
+
+        # Derive minimum 3D camera-fly distance from near plane.
+        if cfg.scaling.auto_min_distance:
+            self._min_dist_3d = compute_min_cam_fly_dist_3d(
+                z_near=self._z_near,
+                fly_bounding_radius=self._fly_bounding_radius,
+                fly_base_scale=self._fly_base_scale,
+                screen_distance_mm=cfg.scaling.screen_distance_mm,
+                safety_margin=cfg.scaling.near_plane_safety,
+            )
+            logger.info(
+                "Derived min 3D cam-fly distance: %.2f mm "
+                "(near=%.1f, bound_r=%.3f, base_scale=%.4f)",
+                self._min_dist_3d, self._z_near,
+                self._fly_bounding_radius, self._fly_base_scale,
+            )
+        else:
+            self._min_dist_3d = cfg.scaling.min_cam_fly_dist_mm
 
         if self._proj_mode == PROJ_PERSPECTIVE:
             self._proj_mat = perspective(
@@ -547,17 +596,18 @@ class Fly3DStimulus(Stimulus):
             self._cam_x, self._cam_y, cfg.arena.radius_mm,
         )
 
-        # Enforce minimum distance
-        self._fly_x, self._fly_y = enforce_min_distance(
+        # Enforce minimum 3D distance (accounts for camera height)
+        self._fly_x, self._fly_y = enforce_min_distance_3d(
             (self._fly_x, self._fly_y),
             (self._cam_x, self._cam_y),
-            cfg.scaling.min_cam_fly_dist_mm,
+            self._cam_height,
+            self._min_dist_3d,
         )
         self._fly_x, self._fly_y = clamp_to_arena(
             self._fly_x, self._fly_y, cfg.arena.radius_mm,
         )
 
-        # Smooth scaling
+        # Smooth scaling with near-plane clamping
         dist = compute_camera_fly_distance_mm(
             (self._fly_x, self._fly_y),
             (self._cam_x, self._cam_y),
@@ -565,6 +615,12 @@ class Fly3DStimulus(Stimulus):
         )
         self._fly_scale_target = self._fly_base_scale * (
             cfg.scaling.screen_distance_mm / max(dist, 1e-6)
+        )
+        self._fly_scale_target = clamp_scale_for_near_plane(
+            self._fly_scale_target,
+            self._fly_bounding_radius,
+            dist,
+            self._z_near,
         )
         if cfg.scaling.dist_scale_smooth_hz > 0:
             alpha = 1.0 - math.exp(
@@ -885,3 +941,7 @@ def main() -> None:
         target_fps=config.display.target_fps,
         session=session,
     )
+
+
+if __name__ == "__main__":
+    main()

@@ -116,6 +116,7 @@ class WarpCircleStimulus(Stimulus):
         self._x_offset = x_min + self._amplitude
 
         # Window
+        pygame.init()
         mon = pick_monitor(
             self._proj_w, self._proj_h, which=cfg.display.monitor,
         )
@@ -438,3 +439,7 @@ def main() -> None:
 
     stimulus = WarpCircleStimulus(config=config)
     stimulus.run(target_fps=config.display.target_fps)
+
+
+if __name__ == "__main__":
+    main()

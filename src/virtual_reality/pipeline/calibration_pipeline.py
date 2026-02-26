@@ -190,3 +190,7 @@ def main() -> None:
         "Calibration pipeline requires hardware (camera + projector).\n"
         "Use the GUI or call run_calibration_pipeline() from Python."
     )
+
+
+if __name__ == "__main__":
+    main()

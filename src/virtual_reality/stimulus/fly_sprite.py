@@ -31,17 +31,21 @@ def _load_sprites(
     folder: str | Path,
     pattern: str = r"fly[-_]?(\d+)\.\w+$",
     near_white: int = 245,
+    crop_margin_px: int = 2,
 ) -> tuple[list[np.ndarray], list[np.ndarray]]:
-    """Load turntable sprite images and their masks.
+    """Load turntable sprite images, crop to bounding box, and return masks.
 
     Images are sorted by the angle extracted from their filename.
     Foreground pixels are those with any channel value below
-    *near_white*.
+    *near_white*.  Each sprite is cropped to the tight bounding box
+    of the foreground mask plus *crop_margin_px* on each side.
 
     Args:
         folder: Directory containing sprite images.
         pattern: Regex with a capture group for the angle.
         near_white: Threshold below which a pixel is foreground.
+        crop_margin_px: Extra pixels kept around the detected fly
+            when cropping the sprite.
 
     Returns:
         ``(sprites, masks)`` where each list has one entry per
@@ -79,23 +83,32 @@ def _load_sprites(
         if img is None:
             continue
 
-        # Build foreground mask
+        # Build foreground mask (uint8 for cropping)
         if img.ndim == 2:
-            mask = img < near_white
+            fg = (img < near_white).astype(np.uint8)
         elif img.shape[2] == 4:
-            mask = img[:, :, 3] > 0
+            fg = (img[:, :, 3] > 0).astype(np.uint8)
         else:
             gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-            mask = gray < near_white
+            fg = (gray < near_white).astype(np.uint8)
 
-        # Convert to BGR if needed
+        # Convert to BGR
         if img.ndim == 2:
             img = cv2.cvtColor(img, cv2.COLOR_GRAY2BGR)
         elif img.shape[2] == 4:
             img = cv2.cvtColor(img, cv2.COLOR_BGRA2BGR)
 
-        sprites.append(img)
-        masks.append(mask)
+        # Crop to tight bounding box of foreground
+        ys, xs = np.where(fg > 0)
+        if len(xs) == 0 or len(ys) == 0:
+            continue
+        x0 = max(0, int(xs.min()) - crop_margin_px)
+        x1 = min(img.shape[1], int(xs.max()) + 1 + crop_margin_px)
+        y0 = max(0, int(ys.min()) - crop_margin_px)
+        y1 = min(img.shape[0], int(ys.max()) + 1 + crop_margin_px)
+
+        sprites.append(img[y0:y1, x0:x1].copy())
+        masks.append(fg[y0:y1, x0:x1].astype(bool))
 
     logger.info("Loaded %d sprites from %s", len(sprites), folder)
     return sprites, masks
@@ -218,7 +231,10 @@ class FlySpriteStimulus(Stimulus):
         # Load sprites
         folder = self._sprite_folder
         if folder is None:
-            folder = Path(cfg.fly_model.model_path).parent
+            if cfg.fly_model.sprite_folder:
+                folder = Path(cfg.fly_model.sprite_folder)
+            else:
+                folder = Path(cfg.fly_model.model_path).parent
         self._sprites, self._masks = _load_sprites(folder)
         self._n_frames = len(self._sprites)
         if self._n_frames == 0:
@@ -278,6 +294,11 @@ class FlySpriteStimulus(Stimulus):
         self._px_per_mm = self._cam_w / (2.0 * cfg.arena.radius_mm)
         self._cx = self._cam_w // 2
         self._cy = self._cam_h // 2
+
+        # Camera position (observer viewpoint)
+        self._cam_x = cfg.camera.x_mm
+        self._cam_y = cfg.camera.y_mm
+        self._cam_heading = 0.0
 
         # State
         mov = cfg.movement
@@ -525,3 +546,7 @@ def main() -> None:
         target_fps=config.display.target_fps,
         session=session,
     )
+
+
+if __name__ == "__main__":
+    main()

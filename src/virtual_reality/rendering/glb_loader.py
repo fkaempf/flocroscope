@@ -65,6 +65,7 @@ class Mesh:
     center: np.ndarray = field(
         default_factory=lambda: np.zeros(3, dtype=np.float32),
     )
+    bounding_radius: float = 0.0
 
 
 # ---------------------------------------------------------------------------
@@ -370,6 +371,9 @@ def load_glb(path: str | Path) -> Mesh:
     center = 0.5 * (mins + maxs)
     positions -= center
 
+    # Bounding sphere radius (max vertex distance from center).
+    bounding_radius = float(np.linalg.norm(positions, axis=1).max())
+
     # Fill draw-call base indices.
     base = 0
     for dc in draw_calls:
@@ -389,4 +393,5 @@ def load_glb(path: str | Path) -> Mesh:
         indices=indices,
         draw_calls=draw_calls,
         center=center,
+        bounding_radius=bounding_radius,
     )

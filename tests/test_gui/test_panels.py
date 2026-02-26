@@ -65,8 +65,8 @@ class TestStimulusPanelConstruction:
     def test_stimulus_types_populated(self) -> None:
         """Module-level STIMULUS_TYPES has expected entries."""
         assert len(STIMULUS_TYPES) >= 1
-        labels = [label for label, _key in STIMULUS_TYPES]
-        keys = [key for _label, key in STIMULUS_TYPES]
+        labels = [entry[0] for entry in STIMULUS_TYPES]
+        keys = [entry[1] for entry in STIMULUS_TYPES]
         assert "fly_3d" in keys
         assert "Fly 3D (GLB)" in labels
 

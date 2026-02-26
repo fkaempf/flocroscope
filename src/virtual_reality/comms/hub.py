@@ -272,3 +272,7 @@ def main() -> None:
         pass
     finally:
         hub.stop_all()
+
+
+if __name__ == "__main__":
+    main()

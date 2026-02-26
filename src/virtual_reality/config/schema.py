@@ -37,6 +37,7 @@ class FlyModelConfig:
     """
 
     model_path: str = ""
+    sprite_folder: str = ""
     phys_length_mm: float = 3.0
     base_scale: float = 1.0
     yaw_offset_deg: float = 0.0
@@ -212,13 +213,21 @@ class ScalingConfig:
         apparent_distance_mm: Override for apparent distance. ``None``
             uses the live camera-fly separation.
         dist_scale_smooth_hz: Smoothing rate for scale transitions.
-        min_cam_fly_dist_mm: Minimum allowed camera-fly distance.
+        min_cam_fly_dist_mm: Fallback minimum camera-fly distance
+            (used only when *auto_min_distance* is ``False``).
+        auto_min_distance: Derive the minimum distance from the near
+            plane and fly bounding sphere instead of using the
+            hardcoded *min_cam_fly_dist_mm*.
+        near_plane_safety: Safety margin multiplier for the derived
+            minimum distance.
     """
 
     screen_distance_mm: float = 60.0
     apparent_distance_mm: float | None = None
     dist_scale_smooth_hz: float = 8.0
     min_cam_fly_dist_mm: float = 1.5
+    auto_min_distance: bool = True
+    near_plane_safety: float = 1.2
 
 
 @dataclass
@@ -347,11 +356,15 @@ def _resolve_default_paths() -> VirtualRealityConfig:
         config.fly_model.model_path = str(
             base / "virtual.fly" / "testmodel.glb"
         )
+        config.fly_model.sprite_folder = str(
+            base / "virtual.fly" / "og_pics"
+        )
     else:
-        cal = Path("configs/camera.projector.mapping")
-        config.fly_model.model_path = "assets/fly.glb"
+        cal = Path("D:/screen.calibration/configs")
+        config.fly_model.model_path = r"D:\virtual.fly\fly.glb"
+        config.fly_model.sprite_folder = r"D:\virtual.fly\og_pics"
 
-    mapping = cal / "camera.projector.mapping" if is_mac else cal
+    mapping = cal / "camera.projector.mapping"
     config.warp.mapx_path = str(
         mapping / "mapx.experimental.npy"
     )

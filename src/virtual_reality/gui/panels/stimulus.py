@@ -7,6 +7,10 @@ stimulus types from the GUI.
 from __future__ import annotations
 
 import logging
+import subprocess
+import sys
+import tempfile
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -14,11 +18,11 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-# Stimulus options with display names
+# Stimulus options with display names and module paths
 STIMULUS_TYPES = [
-    ("Fly 3D (GLB)", "fly_3d"),
-    ("Fly 2D (Sprite)", "fly_sprite"),
-    ("Warp Circle (Calibration)", "warp_circle"),
+    ("Fly 3D (GLB)", "fly_3d", "virtual_reality.stimulus.fly_3d"),
+    ("Fly 2D (Sprite)", "fly_sprite", "virtual_reality.stimulus.fly_sprite"),
+    ("Warp Circle (Calibration)", "warp_circle", "virtual_reality.stimulus.warp_circle"),
 ]
 
 
@@ -33,6 +37,8 @@ class StimulusPanel:
         self._config = config
         self._selected_idx = 0
         self._running = False
+        self._process: subprocess.Popen | None = None
+        self._status_msg = ""
 
     def draw(self) -> None:
         """Render the stimulus panel contents."""
@@ -42,7 +48,7 @@ class StimulusPanel:
 
         # Stimulus selection
         imgui.text("Stimulus Type:")
-        for i, (label, _key) in enumerate(STIMULUS_TYPES):
+        for i, (label, _key, _mod) in enumerate(STIMULUS_TYPES):
             if imgui.radio_button(label, self._selected_idx == i):
                 self._selected_idx = i
         imgui.separator()
@@ -102,13 +108,78 @@ class StimulusPanel:
 
         imgui.separator()
 
-        # Launch button
+        # Check if subprocess is still running
+        if self._process is not None:
+            ret = self._process.poll()
+            if ret is not None:
+                self._running = False
+                if ret == 0:
+                    self._status_msg = "Stimulus exited normally."
+                else:
+                    self._status_msg = f"Stimulus exited with code {ret}."
+                self._process = None
+
+        # Launch / Stop button
         if not self._running:
-            if imgui.button("Launch Stimulus (CLI)"):
-                _, key = STIMULUS_TYPES[self._selected_idx]
-                logger.info("Launch requested: %s", key)
-                imgui.text("Use CLI: vr-fly3d / vr-fly2d")
+            if imgui.button("Launch Stimulus"):
+                self._launch_stimulus()
         else:
-            imgui.text("Stimulus running...")
+            if imgui.button("Stop Stimulus"):
+                self._stop_stimulus()
+            imgui.same_line()
+            imgui.text_colored("Running...", 0.4, 1.0, 0.4)
+
+        if self._status_msg:
+            imgui.text(self._status_msg)
 
         imgui.end()
+
+    def _launch_stimulus(self) -> None:
+        """Launch the selected stimulus as a subprocess."""
+        _, key, module = STIMULUS_TYPES[self._selected_idx]
+        logger.info("Launching stimulus: %s", key)
+
+        # Save current config to a temp YAML file
+        try:
+            from virtual_reality.config.loader import save_config
+
+            tmp = Path(tempfile.mkdtemp()) / "vr_gui_config.yaml"
+            save_config(self._config, tmp)
+            config_path = str(tmp)
+        except Exception as exc:
+            logger.warning("Could not save temp config: %s", exc)
+            config_path = None
+
+        # Build command
+        cmd = [sys.executable, "-m", module]
+        if config_path:
+            cmd.append(config_path)
+
+        # Set PYTHONPATH so the subprocess finds virtual_reality
+        import os
+        env = os.environ.copy()
+        src_dir = str(Path(__file__).resolve().parents[3])
+        existing = env.get("PYTHONPATH", "")
+        if src_dir not in existing:
+            env["PYTHONPATH"] = (
+                src_dir + os.pathsep + existing if existing
+                else src_dir
+            )
+
+        try:
+            self._process = subprocess.Popen(cmd, env=env)
+            self._running = True
+            self._status_msg = f"Launched {key} (PID {self._process.pid})"
+            logger.info(
+                "Stimulus subprocess started: PID %d", self._process.pid,
+            )
+        except Exception as exc:
+            self._status_msg = f"Failed to launch: {exc}"
+            logger.error("Failed to launch stimulus: %s", exc)
+
+    def _stop_stimulus(self) -> None:
+        """Stop the running stimulus subprocess."""
+        if self._process is not None:
+            self._process.terminate()
+            self._status_msg = "Stimulus terminated."
+            logger.info("Stimulus subprocess terminated")
