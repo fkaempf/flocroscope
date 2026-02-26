@@ -21,6 +21,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+display = ["screeninfo>=0.8"]
 alvium = ["harvesters>=1.4"]
 flir = ["rotpy>=0.3"]
 gui = ["imgui[pygame]>=2.0"]
@@ -31,7 +32,7 @@ dev = [
     "ruff",
     "mypy",
 ]
-all = ["virtual-reality[alvium,flir,gui,comms,dev]"]
+all = ["virtual-reality[display,alvium,flir,gui,comms,dev]"]
 
 [project.scripts]
 vr-fly3d = "virtual_reality.stimulus.fly_3d:main"

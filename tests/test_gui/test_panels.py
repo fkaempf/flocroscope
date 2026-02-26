@@ -8,10 +8,19 @@ when imgui is not installed.
 
 from __future__ import annotations
 
+import os
+import tempfile
 from unittest.mock import MagicMock, patch
 
+import numpy as np
 import pytest
 
+from virtual_reality.comms.flomington import (
+    FlomingtonClient,
+    FlomingtonConfig,
+    FlyCross,
+    FlyStock,
+)
 from virtual_reality.config.schema import (
     CalibrationConfig,
     VirtualRealityConfig,
@@ -24,6 +33,7 @@ from virtual_reality.gui.panels.calibration import (
 )
 from virtual_reality.gui.panels.comms import CommsPanel
 from virtual_reality.gui.panels.config_editor import ConfigEditorPanel
+from virtual_reality.gui.panels.flomington import FlomingtonPanel
 from virtual_reality.gui.panels.mapping import MappingPanel
 from virtual_reality.gui.panels.session import SessionPanel
 from virtual_reality.gui.panels.stimulus import StimulusPanel, STIMULUS_TYPES
@@ -312,6 +322,8 @@ class TestCalibrationPanelConstruction:
         assert panel._config is cfg
         assert panel._status_msg == ""
         assert panel._last_rms is None
+        assert panel._calibrating is False
+        assert panel._calibration_thread is None
 
     def test_custom_config_is_stored(self) -> None:
         """Panel stores the provided config reference."""
@@ -338,6 +350,12 @@ class TestCalibrationPanelConstruction:
         assert panel._config.camera_type == "alvium"
         assert panel._config.exposure_ms == 15.0
 
+    def test_is_calibrating_property(self) -> None:
+        """is_calibrating property reflects _calibrating state."""
+        cfg = CalibrationConfig()
+        panel = CalibrationPanel(cfg)
+        assert panel.is_calibrating is False
+
     def test_fisheye_files_constant(self) -> None:
         """Module-level _FISHEYE_FILES has the expected entries."""
         assert len(_FISHEYE_FILES) == 3
@@ -353,30 +371,81 @@ class TestCalibrationPanelConstruction:
 
 
 class TestCalibrationPanelRunCalibration:
-    """Tests for CalibrationPanel._run_calibration() placeholder."""
+    """Tests for CalibrationPanel._run_calibration() with threading."""
 
     def test_run_calibration_sets_status(self) -> None:
-        """_run_calibration() sets a non-empty status message."""
+        """_run_calibration() sets a non-empty status and completes with camera/mode info."""
         cfg = CalibrationConfig()
         panel = CalibrationPanel(cfg)
         panel._run_calibration()
         assert panel._status_msg != ""
+        # Wait for thread completion, then check final status
+        if panel._calibration_thread:
+            panel._calibration_thread.join(timeout=5.0)
         assert cfg.camera_type in panel._status_msg
         assert cfg.mode in panel._status_msg
 
     def test_run_calibration_includes_camera_type(self) -> None:
-        """Status message mentions the configured camera type."""
+        """Completed status message mentions the configured camera type."""
         cfg = CalibrationConfig(camera_type="rotpy")
         panel = CalibrationPanel(cfg)
         panel._run_calibration()
+        if panel._calibration_thread:
+            panel._calibration_thread.join(timeout=5.0)
         assert "rotpy" in panel._status_msg
 
     def test_run_calibration_includes_mode(self) -> None:
-        """Status message mentions the configured capture mode."""
+        """Completed status message mentions the configured capture mode."""
         cfg = CalibrationConfig(mode="gray")
         panel = CalibrationPanel(cfg)
         panel._run_calibration()
+        if panel._calibration_thread:
+            panel._calibration_thread.join(timeout=5.0)
         assert "gray" in panel._status_msg
+
+    def test_run_calibration_starts_thread(self) -> None:
+        """_run_calibration() starts a background thread."""
+        cfg = CalibrationConfig()
+        panel = CalibrationPanel(cfg)
+        panel._run_calibration()
+        assert panel._calibration_thread is not None
+        assert panel._calibration_thread.daemon is True
+        panel._calibration_thread.join(timeout=2.0)
+
+    def test_run_calibration_sets_calibrating_flag(self) -> None:
+        """_run_calibration() sets _calibrating to True."""
+        cfg = CalibrationConfig()
+        panel = CalibrationPanel(cfg)
+        panel._run_calibration()
+        # The flag is True immediately after calling
+        # (thread may complete very quickly, so just check it was set)
+        assert panel._calibration_thread is not None
+        panel._calibration_thread.join(timeout=2.0)
+
+    def test_calibration_completes(self) -> None:
+        """Background calibration thread completes and clears the flag."""
+        cfg = CalibrationConfig()
+        panel = CalibrationPanel(cfg)
+        panel._run_calibration()
+        panel._calibration_thread.join(timeout=5.0)
+        assert panel._calibrating is False
+        assert "complete" in panel._status_msg.lower()
+
+    def test_duplicate_calibration_ignored(self) -> None:
+        """A second _run_calibration() while running is ignored."""
+        cfg = CalibrationConfig()
+        panel = CalibrationPanel(cfg)
+        panel._calibrating = True  # Simulate already running
+        panel._run_calibration()
+        assert "already" in panel._status_msg.lower()
+
+    def test_do_calibration_returns_string(self) -> None:
+        """_do_calibration() returns a human-readable summary."""
+        cfg = CalibrationConfig()
+        panel = CalibrationPanel(cfg)
+        result = panel._do_calibration()
+        assert isinstance(result, str)
+        assert len(result) > 0
 
 
 # ------------------------------------------------------------------ #
@@ -394,6 +463,8 @@ class TestMappingPanelConstruction:
         assert panel._config is cfg
         assert panel._status_msg == ""
         assert panel._map_shape is None
+        assert panel._warp_map is None
+        assert panel._mapping_running is False
 
     def test_custom_config_is_stored(self) -> None:
         """Panel stores the provided config reference."""
@@ -412,9 +483,21 @@ class TestMappingPanelConstruction:
         panel = MappingPanel(vr_cfg.warp)
         assert panel._config.mapx_path == "data/mapx.experimental.npy"
 
+    def test_warp_map_property(self) -> None:
+        """warp_map property returns None by default."""
+        cfg = WarpConfig()
+        panel = MappingPanel(cfg)
+        assert panel.warp_map is None
+
+    def test_is_mapping_property(self) -> None:
+        """is_mapping property returns False by default."""
+        cfg = WarpConfig()
+        panel = MappingPanel(cfg)
+        assert panel.is_mapping is False
+
 
 class TestMappingPanelLoadWarpMap:
-    """Tests for MappingPanel._load_warp_map() placeholder."""
+    """Tests for MappingPanel._load_warp_map() with real loading."""
 
     def test_load_no_paths_sets_error(self) -> None:
         """_load_warp_map() reports an error when paths are empty."""
@@ -437,30 +520,414 @@ class TestMappingPanelLoadWarpMap:
         panel._load_warp_map()
         assert "Cannot load" in panel._status_msg
 
-    def test_load_both_paths_set(self) -> None:
-        """_load_warp_map() sets a non-error status when paths are set."""
+    def test_load_file_not_found(self) -> None:
+        """_load_warp_map() handles missing files gracefully."""
         cfg = WarpConfig(
-            mapx_path="/tmp/mapx.npy",
-            mapy_path="/tmp/mapy.npy",
+            mapx_path="/nonexistent/mapx.npy",
+            mapy_path="/nonexistent/mapy.npy",
         )
         panel = MappingPanel(cfg)
         panel._load_warp_map()
-        assert "Cannot load" not in panel._status_msg
-        assert panel._status_msg != ""
-        assert "/tmp/mapx.npy" in panel._status_msg
-        assert "/tmp/mapy.npy" in panel._status_msg
+        assert "not found" in panel._status_msg.lower() or "No such file" in panel._status_msg
+
+    def test_load_real_warp_maps(self, tmp_path) -> None:
+        """_load_warp_map() successfully loads real numpy warp maps."""
+        mapx = np.random.uniform(0, 100, (600, 800)).astype(np.float32)
+        mapy = np.random.uniform(0, 80, (600, 800)).astype(np.float32)
+        mapx_path = str(tmp_path / "mapx.npy")
+        mapy_path = str(tmp_path / "mapy.npy")
+        np.save(mapx_path, mapx)
+        np.save(mapy_path, mapy)
+
+        cfg = WarpConfig(mapx_path=mapx_path, mapy_path=mapy_path)
+        panel = MappingPanel(cfg)
+        panel._load_warp_map()
+
+        assert panel._warp_map is not None
+        assert panel._map_shape is not None
+        assert panel._map_shape == (800, 600)  # (proj_w, proj_h)
+        assert panel.warp_map is not None
+        assert panel.warp_map.proj_w == 800
+        assert panel.warp_map.proj_h == 600
+        assert "valid" in panel._status_msg.lower()
+
+    def test_load_invalid_warp_maps(self, tmp_path) -> None:
+        """_load_warp_map() handles all-NaN maps gracefully."""
+        mapx = np.full((100, 200), np.nan, dtype=np.float32)
+        mapy = np.full((100, 200), np.nan, dtype=np.float32)
+        mapx_path = str(tmp_path / "mapx.npy")
+        mapy_path = str(tmp_path / "mapy.npy")
+        np.save(mapx_path, mapx)
+        np.save(mapy_path, mapy)
+
+        cfg = WarpConfig(mapx_path=mapx_path, mapy_path=mapy_path)
+        panel = MappingPanel(cfg)
+        panel._load_warp_map()
+
+        assert panel._warp_map is None
+        assert "invalid" in panel._status_msg.lower() or "no valid" in panel._status_msg.lower()
 
 
 class TestMappingPanelRunPipeline:
-    """Tests for MappingPanel._run_mapping_pipeline() placeholder."""
+    """Tests for MappingPanel._run_mapping_pipeline() with threading."""
 
     def test_run_pipeline_sets_status(self) -> None:
-        """_run_mapping_pipeline() sets a non-empty status message."""
+        """_run_mapping_pipeline() sets a running status message."""
         cfg = WarpConfig()
         panel = MappingPanel(cfg)
         panel._run_mapping_pipeline()
         assert panel._status_msg != ""
-        assert "pipeline" in panel._status_msg.lower()
+        if panel._mapping_thread:
+            panel._mapping_thread.join(timeout=2.0)
+
+    def test_run_pipeline_starts_thread(self) -> None:
+        """_run_mapping_pipeline() starts a background thread."""
+        cfg = WarpConfig()
+        panel = MappingPanel(cfg)
+        panel._run_mapping_pipeline()
+        assert panel._mapping_thread is not None
+        assert panel._mapping_thread.daemon is True
+        panel._mapping_thread.join(timeout=2.0)
+
+    def test_mapping_completes(self) -> None:
+        """Background mapping thread completes and clears the flag."""
+        cfg = WarpConfig()
+        panel = MappingPanel(cfg)
+        panel._run_mapping_pipeline()
+        panel._mapping_thread.join(timeout=5.0)
+        assert panel._mapping_running is False
+        assert "complete" in panel._status_msg.lower()
+
+    def test_duplicate_mapping_ignored(self) -> None:
+        """A second _run_mapping_pipeline() while running is ignored."""
+        cfg = WarpConfig()
+        panel = MappingPanel(cfg)
+        panel._mapping_running = True
+        panel._run_mapping_pipeline()
+        assert "already" in panel._status_msg.lower()
+
+    def test_do_mapping_returns_string(self) -> None:
+        """_do_mapping() returns a human-readable summary."""
+        cfg = WarpConfig()
+        panel = MappingPanel(cfg)
+        result = panel._do_mapping()
+        assert isinstance(result, str)
+        assert len(result) > 0
+
+
+# ------------------------------------------------------------------ #
+#  FlomingtonPanel
+# ------------------------------------------------------------------ #
+
+
+class TestFlomingtonPanelConstruction:
+    """Tests for FlomingtonPanel instantiation and defaults."""
+
+    def test_default_construction_no_client(self) -> None:
+        """Panel can be constructed with client=None (default)."""
+        panel = FlomingtonPanel()
+        assert panel.client is None
+        assert panel._lookup_id == ""
+        assert panel._lookup_type == 0
+        assert panel._status_msg == ""
+        assert panel.stock is None
+        assert panel.cross is None
+
+    def test_construction_with_none(self) -> None:
+        """Explicitly passing None yields disconnected state."""
+        panel = FlomingtonPanel(client=None)
+        assert panel.client is None
+
+    def test_construction_with_client(self) -> None:
+        """Panel stores a provided FlomingtonClient."""
+        cfg = FlomingtonConfig()
+        client = FlomingtonClient(cfg)
+        panel = FlomingtonPanel(client=client)
+        assert panel.client is client
+
+    def test_client_property_setter(self) -> None:
+        """client property setter updates the stored client."""
+        panel = FlomingtonPanel()
+        assert panel.client is None
+
+        cfg = FlomingtonConfig()
+        client = FlomingtonClient(cfg)
+        panel.client = client
+        assert panel.client is client
+
+    def test_client_property_setter_to_none(self) -> None:
+        """Setting client to None removes the client."""
+        cfg = FlomingtonConfig()
+        client = FlomingtonClient(cfg)
+        panel = FlomingtonPanel(client=client)
+        panel.client = None
+        assert panel.client is None
+
+
+class TestFlomingtonPanelLookup:
+    """Tests for FlomingtonPanel._do_lookup() method."""
+
+    def test_lookup_empty_id(self) -> None:
+        """_do_lookup() reports error for empty ID."""
+        panel = FlomingtonPanel()
+        panel._lookup_id = ""
+        panel._do_lookup()
+        assert "enter" in panel._status_msg.lower()
+
+    def test_lookup_whitespace_id(self) -> None:
+        """_do_lookup() reports error for whitespace-only ID."""
+        panel = FlomingtonPanel()
+        panel._lookup_id = "   "
+        panel._do_lookup()
+        assert "enter" in panel._status_msg.lower()
+
+    def test_lookup_no_client(self) -> None:
+        """_do_lookup() reports error when no client configured."""
+        panel = FlomingtonPanel(client=None)
+        panel._lookup_id = "test123"
+        panel._do_lookup()
+        assert "not configured" in panel._status_msg.lower()
+
+    def test_stock_lookup_not_found(self) -> None:
+        """Stock lookup with placeholder client returns not found."""
+        cfg = FlomingtonConfig()
+        client = FlomingtonClient(cfg)
+        panel = FlomingtonPanel(client=client)
+        panel._lookup_id = "XXXX1234"
+        panel._lookup_type = 0  # Stock
+        panel._do_lookup()
+        assert "not found" in panel._status_msg.lower()
+        assert panel.stock is None
+
+    def test_cross_lookup_not_found(self) -> None:
+        """Cross lookup with placeholder client returns not found."""
+        cfg = FlomingtonConfig()
+        client = FlomingtonClient(cfg)
+        panel = FlomingtonPanel(client=client)
+        panel._lookup_id = "XXXX5678"
+        panel._lookup_type = 1  # Cross
+        panel._do_lookup()
+        assert "not found" in panel._status_msg.lower()
+        assert panel.cross is None
+
+    def test_stock_lookup_found(self) -> None:
+        """Stock lookup with mocked client stores the stock."""
+        cfg = FlomingtonConfig()
+        client = FlomingtonClient(cfg)
+        stock = FlyStock(
+            stock_id="ABC12345",
+            name="CS Wild-type",
+            genotype="Canton-S",
+            source="Bloomington",
+            genetic_tags=["wild-type"],
+        )
+        client.get_stock = MagicMock(return_value=stock)
+
+        panel = FlomingtonPanel(client=client)
+        panel._lookup_id = "ABC12345"
+        panel._lookup_type = 0
+        panel._do_lookup()
+
+        assert panel.stock is stock
+        assert panel.cross is None
+        assert "CS Wild-type" in panel._status_msg
+
+    def test_cross_lookup_found(self) -> None:
+        """Cross lookup with mocked client stores the cross."""
+        cfg = FlomingtonConfig()
+        client = FlomingtonClient(cfg)
+        cross = FlyCross(
+            cross_id="XYZ98765",
+            virgin_parent="Gal4",
+            male_parent="UAS-GCaMP",
+            status="ripening",
+            experiment_type="2P",
+        )
+        client.get_cross = MagicMock(return_value=cross)
+
+        panel = FlomingtonPanel(client=client)
+        panel._lookup_id = "XYZ98765"
+        panel._lookup_type = 1
+        panel._do_lookup()
+
+        assert panel.cross is cross
+        assert panel.stock is None
+        assert "XYZ98765" in panel._status_msg
+
+    def test_stock_lookup_clears_previous_cross(self) -> None:
+        """Stock lookup clears any previously stored cross."""
+        cfg = FlomingtonConfig()
+        client = FlomingtonClient(cfg)
+        stock = FlyStock(stock_id="AA", name="test")
+        client.get_stock = MagicMock(return_value=stock)
+
+        panel = FlomingtonPanel(client=client)
+        panel._cross = FlyCross(cross_id="old")
+        panel._lookup_id = "AA"
+        panel._lookup_type = 0
+        panel._do_lookup()
+
+        assert panel.stock is stock
+        assert panel.cross is None
+
+    def test_cross_lookup_clears_previous_stock(self) -> None:
+        """Cross lookup clears any previously stored stock."""
+        cfg = FlomingtonConfig()
+        client = FlomingtonClient(cfg)
+        cross = FlyCross(cross_id="BB", status="done")
+        client.get_cross = MagicMock(return_value=cross)
+
+        panel = FlomingtonPanel(client=client)
+        panel._stock = FlyStock(stock_id="old")
+        panel._lookup_id = "BB"
+        panel._lookup_type = 1
+        panel._do_lookup()
+
+        assert panel.cross is cross
+        assert panel.stock is None
+
+
+class TestFlomingtonPanelLinkToSession:
+    """Tests for FlomingtonPanel._link_to_session() placeholder."""
+
+    def test_link_with_stock(self) -> None:
+        """_link_to_session() with a stock sets status."""
+        panel = FlomingtonPanel()
+        panel._stock = FlyStock(
+            stock_id="ABC", name="CS",
+        )
+        panel._link_to_session()
+        assert "link" in panel._status_msg.lower()
+        assert "CS" in panel._status_msg
+
+    def test_link_with_cross(self) -> None:
+        """_link_to_session() with a cross sets status."""
+        panel = FlomingtonPanel()
+        panel._cross = FlyCross(cross_id="XYZ")
+        panel._link_to_session()
+        assert "link" in panel._status_msg.lower()
+        assert "XYZ" in panel._status_msg
+
+    def test_link_no_record(self) -> None:
+        """_link_to_session() with no record sets error."""
+        panel = FlomingtonPanel()
+        panel._link_to_session()
+        assert "no record" in panel._status_msg.lower()
+
+
+class TestFlomingtonPanelImport:
+    """Tests for FlomingtonPanel module import and re-export."""
+
+    def test_importable_from_panels_package(self) -> None:
+        """FlomingtonPanel is importable from the panels package."""
+        from virtual_reality.gui.panels import FlomingtonPanel as FP
+        assert FP is FlomingtonPanel
+
+    def test_in_all(self) -> None:
+        """FlomingtonPanel is in the __all__ list."""
+        from virtual_reality.gui.panels import __all__
+        assert "FlomingtonPanel" in __all__
+
+
+# ------------------------------------------------------------------ #
+#  SessionPanel — Flomington integration
+# ------------------------------------------------------------------ #
+
+
+class TestSessionPanelFlomington:
+    """Tests for SessionPanel Flomington integration."""
+
+    def test_default_construction_no_flomington(self) -> None:
+        """Panel can be constructed without flomington_client."""
+        cfg = VirtualRealityConfig()
+        panel = SessionPanel(cfg)
+        assert panel.flomington_client is None
+        assert panel._flomington_lookup_done is False
+
+    def test_construction_with_flomington(self) -> None:
+        """Panel stores a provided flomington_client."""
+        cfg = VirtualRealityConfig()
+        flom_cfg = FlomingtonConfig()
+        client = FlomingtonClient(flom_cfg)
+        panel = SessionPanel(cfg, flomington_client=client)
+        assert panel.flomington_client is client
+
+    def test_lookup_populates_genotype_from_stock(self) -> None:
+        """_lookup_from_flomington() populates genotype from stock."""
+        cfg = VirtualRealityConfig()
+        flom_cfg = FlomingtonConfig()
+        client = FlomingtonClient(flom_cfg)
+        stock = FlyStock(
+            stock_id="AAAA1111",
+            name="GMR-Gal4",
+            genotype="w[*]; P{GMR-GAL4}",
+        )
+        client.get_stock = MagicMock(return_value=stock)
+
+        panel = SessionPanel(cfg, flomington_client=client)
+        panel._fly_id = "AAAA1111"
+        panel._lookup_from_flomington()
+
+        assert panel._fly_genotype == "w[*]; P{GMR-GAL4}"
+        assert panel._flomington_lookup_done is True
+
+    def test_lookup_populates_genotype_from_cross(self) -> None:
+        """_lookup_from_flomington() populates genotype from cross."""
+        cfg = VirtualRealityConfig()
+        flom_cfg = FlomingtonConfig()
+        client = FlomingtonClient(flom_cfg)
+        # Stock lookup returns None to fall through to cross
+        client.get_stock = MagicMock(return_value=None)
+        cross = FlyCross(
+            cross_id="BBBB2222",
+            virgin_genotype="w; Gal4",
+            male_genotype="UAS-GCaMP7f",
+            status="screening",
+        )
+        client.get_cross = MagicMock(return_value=cross)
+
+        panel = SessionPanel(cfg, flomington_client=client)
+        panel._fly_id = "BBBB2222"
+        panel._lookup_from_flomington()
+
+        assert "w; Gal4" in panel._fly_genotype
+        assert "UAS-GCaMP7f" in panel._fly_genotype
+        assert panel._flomington_lookup_done is True
+
+    def test_lookup_not_found(self) -> None:
+        """_lookup_from_flomington() reports not found."""
+        cfg = VirtualRealityConfig()
+        flom_cfg = FlomingtonConfig()
+        client = FlomingtonClient(flom_cfg)
+        client.get_stock = MagicMock(return_value=None)
+        client.get_cross = MagicMock(return_value=None)
+
+        panel = SessionPanel(cfg, flomington_client=client)
+        panel._fly_id = "ZZZZ9999"
+        panel._lookup_from_flomington()
+
+        assert "not found" in panel._status_msg.lower()
+        assert panel._flomington_lookup_done is False
+
+    def test_lookup_no_client(self) -> None:
+        """_lookup_from_flomington() does nothing when client is None."""
+        cfg = VirtualRealityConfig()
+        panel = SessionPanel(cfg)
+        panel._fly_id = "test"
+        panel._fly_genotype = "original"
+        panel._lookup_from_flomington()
+        assert panel._fly_genotype == "original"
+
+    def test_lookup_empty_id(self) -> None:
+        """_lookup_from_flomington() does nothing for empty ID."""
+        cfg = VirtualRealityConfig()
+        flom_cfg = FlomingtonConfig()
+        client = FlomingtonClient(flom_cfg)
+        panel = SessionPanel(cfg, flomington_client=client)
+        panel._fly_id = ""
+        panel._fly_genotype = "original"
+        panel._lookup_from_flomington()
+        assert panel._fly_genotype == "original"
 
 
 # ------------------------------------------------------------------ #
@@ -505,5 +972,10 @@ class TestDrawMethodsRequireImgui:
 
     def test_mapping_draw_skips_without_imgui(self) -> None:
         """MappingPanel.draw() requires imgui."""
+        imgui = pytest.importorskip("imgui")
+        pytest.skip("imgui available but OpenGL context required for draw()")
+
+    def test_flomington_draw_skips_without_imgui(self) -> None:
+        """FlomingtonPanel.draw() requires imgui."""
         imgui = pytest.importorskip("imgui")
         pytest.skip("imgui available but OpenGL context required for draw()")

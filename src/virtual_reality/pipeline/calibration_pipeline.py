@@ -95,13 +95,97 @@ def load_maps(
     return mapx, mapy, valid_mask
 
 
-def main() -> None:
-    """CLI entry point for the calibration pipeline.
+def _build_parser() -> "argparse.ArgumentParser":
+    """Build the argument parser for the calibration pipeline CLI."""
+    import argparse
 
-    Placeholder that will be wired into ``pyproject.toml`` entry
-    points.
-    """
-    logger.info("Calibration pipeline entry point (not yet wired)")
+    parser = argparse.ArgumentParser(
+        description=(
+            "Run the projector-camera calibration pipeline. "
+            "Requires hardware (camera + projector)."
+        ),
+    )
+    parser.add_argument(
+        "--config",
+        type=str,
+        default=None,
+        help="Path to a YAML config file to load defaults from.",
+    )
+    parser.add_argument(
+        "--camera",
+        type=str,
+        choices=["alvium", "flir", "none"],
+        default=None,
+        help="Camera type to use for calibration.",
+    )
+    parser.add_argument(
+        "--mode",
+        type=str,
+        choices=["fisheye", "pinhole"],
+        default=None,
+        help="Calibration mode.",
+    )
+    parser.add_argument(
+        "--proj-w",
+        type=int,
+        default=None,
+        help="Projector width in pixels.",
+    )
+    parser.add_argument(
+        "--proj-h",
+        type=int,
+        default=None,
+        help="Projector height in pixels.",
+    )
+    parser.add_argument(
+        "--output-dir",
+        type=str,
+        default=None,
+        help="Directory to save calibration results.",
+    )
+    return parser
+
+
+def main() -> None:
+    """CLI entry point for the calibration pipeline."""
+    import argparse
+
+    from virtual_reality.logging_config import setup_logging
+
+    setup_logging()
+
+    parser = _build_parser()
+    args = parser.parse_args()
+
+    # Load config if provided, otherwise use defaults
+    if args.config is not None:
+        from virtual_reality.config.loader import load_config
+        config = load_config(args.config)
+    else:
+        from virtual_reality.config.schema import VirtualRealityConfig
+        config = VirtualRealityConfig()
+
+    # Apply CLI overrides
+    if args.camera is not None:
+        config.calibration.camera_type = args.camera
+    if args.mode is not None:
+        config.calibration.mode = args.mode
+    if args.proj_w is not None:
+        config.calibration.proj_w = args.proj_w
+    if args.proj_h is not None:
+        config.calibration.proj_h = args.proj_h
+
+    logger.info(
+        "Calibration pipeline: camera=%s mode=%s proj=%dx%d",
+        config.calibration.camera_type,
+        config.calibration.mode,
+        config.calibration.proj_w,
+        config.calibration.proj_h,
+    )
+
+    if args.output_dir is not None:
+        logger.info("Output directory: %s", args.output_dir)
+
     print(
         "Calibration pipeline requires hardware (camera + projector).\n"
         "Use the GUI or call run_calibration_pipeline() from Python."

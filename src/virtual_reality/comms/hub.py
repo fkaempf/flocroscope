@@ -191,20 +191,67 @@ class CommsHub:
         }
 
 
+def _build_parser() -> "argparse.ArgumentParser":
+    """Build the argument parser for the CommsHub CLI."""
+    import argparse
+
+    parser = argparse.ArgumentParser(
+        description="Run the CommsHub standalone for testing.",
+    )
+    parser.add_argument(
+        "--config",
+        type=str,
+        default=None,
+        help="Path to a YAML config file.",
+    )
+    parser.add_argument(
+        "--fictrac-port",
+        type=int,
+        default=None,
+        help="Override FicTrac port (0 to disable).",
+    )
+    parser.add_argument(
+        "--scanimage-port",
+        type=int,
+        default=None,
+        help="Override ScanImage port (0 to disable).",
+    )
+    return parser
+
+
 def main() -> None:
     """CLI entry point: run the hub standalone for testing."""
+    import argparse
     import time
 
-    from virtual_reality.config.schema import CommsConfig
+    from virtual_reality.logging_config import setup_logging
 
-    logging.basicConfig(level=logging.INFO)
-    cfg = CommsConfig(
-        enabled=True,
-        fictrac_port=2000,
-        scanimage_port=5000,
-        led_port=5001,
-        presenter_port=0,  # disabled
-    )
+    setup_logging()
+
+    parser = _build_parser()
+    args = parser.parse_args()
+
+    if args.config is not None:
+        from virtual_reality.config.loader import load_config
+        config = load_config(args.config)
+        cfg = config.comms
+    else:
+        from virtual_reality.config.schema import CommsConfig
+        cfg = CommsConfig(
+            enabled=True,
+            fictrac_port=2000,
+            scanimage_port=5000,
+            led_port=5001,
+            presenter_port=0,
+        )
+
+    # Apply CLI overrides
+    if args.fictrac_port is not None:
+        cfg.fictrac_port = args.fictrac_port
+    if args.scanimage_port is not None:
+        cfg.scanimage_port = args.scanimage_port
+
+    cfg.enabled = True
     hub = CommsHub(cfg)
     hub.start_all()
 

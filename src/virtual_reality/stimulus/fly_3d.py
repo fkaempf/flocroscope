@@ -793,17 +793,83 @@ class Fly3DStimulus(Stimulus):
         }
 
 
+def _build_parser() -> "argparse.ArgumentParser":
+    """Build the argument parser for the 3D fly stimulus CLI."""
+    import argparse
+
+    parser = argparse.ArgumentParser(
+        description="Run the 3D GLB fly stimulus with projector warp.",
+    )
+    parser.add_argument(
+        "config",
+        nargs="?",
+        default=None,
+        help="Path to a YAML configuration file.",
+    )
+    parser.add_argument(
+        "--fps", "-f",
+        type=int,
+        default=None,
+        help="Override target FPS.",
+    )
+    parser.add_argument(
+        "--no-warp",
+        action="store_true",
+        default=False,
+        help="Disable projector warp map even if configured.",
+    )
+    group = parser.add_mutually_exclusive_group()
+    group.add_argument(
+        "--windowed",
+        action="store_true",
+        default=False,
+        help="Run in a windowed (bordered) mode.",
+    )
+    group.add_argument(
+        "--fullscreen",
+        action="store_true",
+        default=False,
+        help="Run in borderless fullscreen mode.",
+    )
+    parser.add_argument(
+        "--monitor", "-m",
+        type=str,
+        default=None,
+        help="Monitor selection: 'left' or 'right'.",
+    )
+    return parser
+
+
 def main() -> None:
     """CLI entry point for the 3D fly stimulus."""
-    import sys
+    import argparse
 
     from virtual_reality.config.loader import load_config
     from virtual_reality.config.schema import _resolve_default_paths
+    from virtual_reality.logging_config import setup_logging
 
-    if len(sys.argv) > 1:
-        config = load_config(sys.argv[1])
+    setup_logging()
+
+    parser = _build_parser()
+    args = parser.parse_args()
+
+    if args.config is not None:
+        config = load_config(args.config)
     else:
         config = _resolve_default_paths()
+
+    # Apply CLI overrides
+    if args.fps is not None:
+        config.display.target_fps = args.fps
+    if args.no_warp:
+        config.warp.mapx_path = ""
+        config.warp.mapy_path = ""
+    if args.windowed:
+        config.display.borderless = False
+    elif args.fullscreen:
+        config.display.borderless = True
+    if args.monitor is not None:
+        config.display.monitor = args.monitor
 
     stimulus = Fly3DStimulus(config=config)
 

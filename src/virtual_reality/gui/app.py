@@ -51,6 +51,7 @@ class VirtualRealityApp:
         self._show_comms = True
         self._show_calibration = False
         self._show_mapping = False
+        self._show_flomington = False
 
     def run(self) -> None:
         """Launch the GUI main loop."""
@@ -106,15 +107,42 @@ class VirtualRealityApp:
             CalibrationPanel,
         )
         from virtual_reality.gui.panels.mapping import MappingPanel
+        from virtual_reality.gui.panels.flomington import (
+            FlomingtonPanel,
+        )
+
+        # Create Flomington client if configured
+        flomington_client = None
+        try:
+            from virtual_reality.comms.flomington import (
+                FlomingtonClient,
+                FlomingtonConfig,
+            )
+            flom_cfg = getattr(
+                self._config, "flomington", FlomingtonConfig(),
+            )
+            if flom_cfg.enabled:
+                flomington_client = FlomingtonClient(flom_cfg)
+                flomington_client.connect()
+        except Exception as exc:
+            logger.warning(
+                "Failed to create Flomington client: %s", exc,
+            )
 
         self._stimulus_panel = StimulusPanel(self._config)
-        self._session_panel = SessionPanel(self._config)
+        self._session_panel = SessionPanel(
+            self._config,
+            flomington_client=flomington_client,
+        )
         self._config_panel = ConfigEditorPanel(self._config)
         self._comms_panel = CommsPanel(self._comms)
         self._calibration_panel = CalibrationPanel(
             self._config.calibration,
         )
         self._mapping_panel = MappingPanel(self._config.warp)
+        self._flomington_panel = FlomingtonPanel(
+            client=flomington_client,
+        )
 
         logger.info("GUI started")
 
@@ -174,6 +202,9 @@ class VirtualRealityApp:
                 _, self._show_mapping = imgui.menu_item(
                     "Mapping", None, self._show_mapping,
                 )
+                _, self._show_flomington = imgui.menu_item(
+                    "Flomington", None, self._show_flomington,
+                )
                 imgui.end_menu()
             imgui.end_main_menu_bar()
 
@@ -193,15 +224,47 @@ class VirtualRealityApp:
             self._calibration_panel.draw()
         if self._show_mapping:
             self._mapping_panel.draw()
+        if self._show_flomington:
+            self._flomington_panel.draw()
+
+def _build_parser() -> "argparse.ArgumentParser":
+    """Build the argument parser for the GUI CLI."""
+    import argparse
+
+    parser = argparse.ArgumentParser(
+        description="Launch the Virtual Reality GUI application.",
+    )
+    parser.add_argument(
+        "config",
+        nargs="?",
+        default=None,
+        help="Path to a YAML configuration file.",
+    )
+    parser.add_argument(
+        "--log-level",
+        type=str,
+        choices=["DEBUG", "INFO", "WARNING", "ERROR"],
+        default="INFO",
+        help="Set the logging level (default: INFO).",
+    )
+    return parser
+
 
 def main() -> None:
     """CLI entry point for the GUI."""
-    import sys
+    import argparse
+
+    from virtual_reality.logging_config import setup_logging
+
+    parser = _build_parser()
+    args = parser.parse_args()
+
+    setup_logging(level=args.log_level)
 
     config = None
-    if len(sys.argv) > 1:
+    if args.config is not None:
         from virtual_reality.config.loader import load_config
-        config = load_config(sys.argv[1])
+        config = load_config(args.config)
 
     app = VirtualRealityApp(config=config)
     app.run()
