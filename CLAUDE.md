@@ -67,6 +67,12 @@ The Dear ImGui GUI (`gui/app.py`) composes the following panels (in `gui/panels/
 - **SessionPanel**: Session lifecycle controls (start/stop/save), trial management, and summary.
 - **CalibrationPanel**: Camera/projector calibration settings and pipeline trigger.
 - **MappingPanel**: Warp map loading, dimensions display, and structured-light pipeline trigger.
+- **FlomingtonPanel**: Fly stock/cross database lookup and session linking.
+- **FicTracPanel**: Dedicated treadmill/ball-tracking data (heading, speed, position, speed history).
+- **ScanImagePanel**: 2-photon imaging sync (trial events, frame clock, acquisition status).
+- **OptogeneticsPanel**: LED control (on/off/pulse, intensity, channel, protocol presets).
+- **BehaviourPanel**: Experiment dashboard (type selector, hardware checklist, session/recording status).
+- **TrackingPanel**: Virtual fly vs real fly relationship (positions, headings, distance, angular offset).
 
 ### Graceful Degradation
 
