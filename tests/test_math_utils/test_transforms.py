@@ -1,4 +1,4 @@
-"""Tests for virtual_reality.math_utils.transforms."""
+"""Tests for flocroscope.math_utils.transforms."""
 
 from __future__ import annotations
 
@@ -7,7 +7,7 @@ import math
 import numpy as np
 import pytest
 
-from virtual_reality.math_utils.transforms import (
+from flocroscope.math_utils.transforms import (
     look_at,
     mat4_rotate_x,
     mat4_rotate_y,

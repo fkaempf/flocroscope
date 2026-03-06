@@ -1,4 +1,4 @@
-"""Tests for virtual_reality.cameras (protocol and factory)."""
+"""Tests for flocroscope.cameras (protocol and factory)."""
 
 from __future__ import annotations
 
@@ -6,8 +6,8 @@ from unittest import mock
 
 import pytest
 
-from virtual_reality.cameras.base import Camera
-from virtual_reality.cameras.factory import create_camera
+from flocroscope.cameras.base import Camera
+from flocroscope.cameras.factory import create_camera
 
 
 class TestCameraProtocol:

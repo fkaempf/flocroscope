@@ -4,14 +4,14 @@ from __future__ import annotations
 
 import pytest
 
-from virtual_reality.comms.base import (
+from flocroscope.comms.base import (
     FicTracFrame,
     LedCommand,
     PresenterCommand,
     TrialEvent,
 )
-from virtual_reality.comms.hub import CommsHub
-from virtual_reality.config.schema import CommsConfig
+from flocroscope.comms.hub import CommsHub
+from flocroscope.config.schema import CommsConfig
 
 
 class TestCommsHubDisabled:

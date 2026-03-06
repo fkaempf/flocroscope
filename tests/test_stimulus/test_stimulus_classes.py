@@ -10,14 +10,14 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from virtual_reality.config.schema import VirtualRealityConfig
-from virtual_reality.stimulus.fly_3d import Fly3DStimulus
-from virtual_reality.stimulus.fly_sprite import (
+from flocroscope.config.schema import FlocroscopeConfig
+from flocroscope.stimulus.fly_3d import Fly3DStimulus
+from flocroscope.stimulus.fly_sprite import (
     FlySpriteStimulus,
     _angle_to_index,
     _render_sprite_masked,
 )
-from virtual_reality.stimulus.warp_circle import WarpCircleStimulus
+from flocroscope.stimulus.warp_circle import WarpCircleStimulus
 
 
 class TestFly3DStimulus:
@@ -28,7 +28,7 @@ class TestFly3DStimulus:
         assert s.config is not None
 
     def test_custom_config(self) -> None:
-        cfg = VirtualRealityConfig()
+        cfg = FlocroscopeConfig()
         s = Fly3DStimulus(config=cfg)
         assert s.config is cfg
 
@@ -53,7 +53,7 @@ class TestFlySpriteStimulus:
         assert s.config is not None
 
     def test_custom_config(self) -> None:
-        cfg = VirtualRealityConfig()
+        cfg = FlocroscopeConfig()
         s = FlySpriteStimulus(config=cfg)
         assert s.config is cfg
 

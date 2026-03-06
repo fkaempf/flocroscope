@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from virtual_reality.comms.flomington import (
+from flocroscope.comms.flomington import (
     FlomingtonClient,
     FlomingtonConfig,
     FlyCross,

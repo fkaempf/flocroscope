@@ -6,8 +6,8 @@ import math
 
 import pytest
 
-from virtual_reality.comms.base import FicTracFrame
-from virtual_reality.comms.fictrac import (
+from flocroscope.comms.base import FicTracFrame
+from flocroscope.comms.fictrac import (
     _COL_DIRECTION,
     _COL_DROT_LAB_X,
     _COL_DROT_LAB_Y,
@@ -143,14 +143,14 @@ class TestFicTracReceiver:
 
     def test_instantiation(self) -> None:
         """Receiver creates without starting."""
-        from virtual_reality.comms.fictrac import FicTracReceiver
+        from flocroscope.comms.fictrac import FicTracReceiver
         recv = FicTracReceiver(host="localhost", port=0)
         assert not recv.connected
         assert recv.poll() is None
 
     def test_stop_without_start(self) -> None:
         """Stopping before starting is a no-op."""
-        from virtual_reality.comms.fictrac import FicTracReceiver
+        from flocroscope.comms.fictrac import FicTracReceiver
         recv = FicTracReceiver(host="localhost", port=0)
         recv.stop()
         assert not recv.connected

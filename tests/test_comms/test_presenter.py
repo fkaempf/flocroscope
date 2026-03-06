@@ -8,7 +8,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from virtual_reality.comms.base import PresenterCommand, PresenterStatus
+from flocroscope.comms.base import PresenterCommand, PresenterStatus
 
 
 class TestPresenterCommand:
@@ -78,7 +78,7 @@ class TestFlyPresenter:
     def test_default_attributes(self) -> None:
         """FlyPresenter initialises with expected defaults."""
         zmq = pytest.importorskip("zmq")
-        from virtual_reality.comms.presenter import FlyPresenter
+        from flocroscope.comms.presenter import FlyPresenter
 
         fp = FlyPresenter()
         assert fp._host == "localhost"
@@ -89,7 +89,7 @@ class TestFlyPresenter:
     def test_custom_host_port(self) -> None:
         """FlyPresenter accepts custom host and port."""
         zmq = pytest.importorskip("zmq")
-        from virtual_reality.comms.presenter import FlyPresenter
+        from flocroscope.comms.presenter import FlyPresenter
 
         fp = FlyPresenter(host="192.168.1.10", port=9999)
         assert fp._host == "192.168.1.10"
@@ -98,7 +98,7 @@ class TestFlyPresenter:
     def test_start_requires_zmq(self) -> None:
         """start() imports zmq; verify it is importable."""
         zmq = pytest.importorskip("zmq")
-        from virtual_reality.comms.presenter import FlyPresenter
+        from flocroscope.comms.presenter import FlyPresenter
 
         import socket
         with socket.socket() as s:
@@ -114,7 +114,7 @@ class TestFlyPresenter:
     def test_start_stop(self) -> None:
         """Controller starts and stops cleanly."""
         zmq = pytest.importorskip("zmq")
-        from virtual_reality.comms.presenter import FlyPresenter
+        from flocroscope.comms.presenter import FlyPresenter
 
         import socket
         with socket.socket() as s:
@@ -132,7 +132,7 @@ class TestFlyPresenter:
     def test_poll_returns_none_before_command(self) -> None:
         """poll() returns None when no command has been sent."""
         zmq = pytest.importorskip("zmq")
-        from virtual_reality.comms.presenter import FlyPresenter
+        from flocroscope.comms.presenter import FlyPresenter
 
         fp = FlyPresenter()
         assert fp.poll() is None
@@ -140,7 +140,7 @@ class TestFlyPresenter:
     def test_poll_returns_none_after_drain(self) -> None:
         """poll() returns None after the latest status has been consumed."""
         zmq = pytest.importorskip("zmq")
-        from virtual_reality.comms.presenter import FlyPresenter
+        from flocroscope.comms.presenter import FlyPresenter
 
         fp = FlyPresenter()
         # Manually inject a status to verify drain behaviour.
@@ -154,7 +154,7 @@ class TestFlyPresenter:
     def test_send_command_is_threaded(self) -> None:
         """send_command() dispatches work to a background thread."""
         zmq = pytest.importorskip("zmq")
-        from virtual_reality.comms.presenter import FlyPresenter
+        from flocroscope.comms.presenter import FlyPresenter
 
         fp = FlyPresenter()
         threads_before = threading.enumerate()
@@ -177,7 +177,7 @@ class TestFlyPresenter:
     def test_send_without_start(self) -> None:
         """Sending without starting doesn't crash (socket is None)."""
         zmq = pytest.importorskip("zmq")
-        from virtual_reality.comms.presenter import FlyPresenter
+        from flocroscope.comms.presenter import FlyPresenter
 
         fp = FlyPresenter()
         fp.send_command(PresenterCommand(command="present"))
@@ -186,7 +186,7 @@ class TestFlyPresenter:
     def test_stop_before_start_is_noop(self) -> None:
         """Calling stop() before start() is safe."""
         zmq = pytest.importorskip("zmq")
-        from virtual_reality.comms.presenter import FlyPresenter
+        from flocroscope.comms.presenter import FlyPresenter
 
         fp = FlyPresenter()
         # Should not raise.
@@ -197,7 +197,7 @@ class TestFlyPresenter:
     def test_present_convenience(self) -> None:
         """present() sends a 'present' command."""
         zmq = pytest.importorskip("zmq")
-        from virtual_reality.comms.presenter import FlyPresenter
+        from flocroscope.comms.presenter import FlyPresenter
 
         fp = FlyPresenter()
         with patch.object(fp, "send_command") as mock:
@@ -210,7 +210,7 @@ class TestFlyPresenter:
     def test_retract_convenience(self) -> None:
         """retract() sends a 'retract' command."""
         zmq = pytest.importorskip("zmq")
-        from virtual_reality.comms.presenter import FlyPresenter
+        from flocroscope.comms.presenter import FlyPresenter
 
         fp = FlyPresenter()
         with patch.object(fp, "send_command") as mock:
@@ -223,7 +223,7 @@ class TestFlyPresenter:
     def test_move_to_convenience(self) -> None:
         """move_to() sends a 'position' command with the target position."""
         zmq = pytest.importorskip("zmq")
-        from virtual_reality.comms.presenter import FlyPresenter
+        from flocroscope.comms.presenter import FlyPresenter
 
         fp = FlyPresenter()
         with patch.object(fp, "send_command") as mock:
@@ -237,7 +237,7 @@ class TestFlyPresenter:
     def test_double_stop_is_safe(self) -> None:
         """Calling stop() twice doesn't raise."""
         zmq = pytest.importorskip("zmq")
-        from virtual_reality.comms.presenter import FlyPresenter
+        from flocroscope.comms.presenter import FlyPresenter
 
         import socket
         with socket.socket() as s:

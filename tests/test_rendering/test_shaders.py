@@ -1,10 +1,10 @@
-"""Tests for virtual_reality.rendering.shaders."""
+"""Tests for flocroscope.rendering.shaders."""
 
 from __future__ import annotations
 
 import pytest
 
-from virtual_reality.rendering.shaders import (
+from flocroscope.rendering.shaders import (
     FLY_FRAG_SRC,
     FLY_VERT_SRC,
     WARP_FRAG_SRC,

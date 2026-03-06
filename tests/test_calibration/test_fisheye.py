@@ -1,4 +1,4 @@
-"""Tests for virtual_reality.calibration.fisheye.
+"""Tests for flocroscope.calibration.fisheye.
 
 Note: Full calibration tests require cv2.omnidir and calibration
 images, so we test the helper functions that don't need hardware.
@@ -11,7 +11,7 @@ import pytest
 
 cv2 = pytest.importorskip("cv2")
 
-from virtual_reality.calibration.fisheye import (
+from flocroscope.calibration.fisheye import (
     FisheyeResult,
     build_object_grid,
     robust_filter,

@@ -15,36 +15,36 @@ from unittest.mock import MagicMock, patch
 import numpy as np
 import pytest
 
-from virtual_reality.comms.flomington import (
+from flocroscope.comms.flomington import (
     FlomingtonClient,
     FlomingtonConfig,
     FlyCross,
     FlyStock,
 )
-from virtual_reality.config.schema import (
+from flocroscope.config.schema import (
     CalibrationConfig,
-    VirtualRealityConfig,
+    FlocroscopeConfig,
     WarpConfig,
 )
-from virtual_reality.gui.panels.behaviour import (
+from flocroscope.gui.panels.behaviour import (
     BehaviourPanel,
     EXPERIMENT_TYPES,
 )
-from virtual_reality.gui.panels.calibration import (
+from flocroscope.gui.panels.calibration import (
     CalibrationPanel,
     _FISHEYE_FILES,
     _PINHOLE_FILES,
 )
-from virtual_reality.gui.panels.comms import CommsPanel
-from virtual_reality.gui.panels.config_editor import ConfigEditorPanel
-from virtual_reality.gui.panels.fictrac import FicTracPanel
-from virtual_reality.gui.panels.flomington import FlomingtonPanel
-from virtual_reality.gui.panels.mapping import MappingPanel
-from virtual_reality.gui.panels.optogenetics import OptogeneticsPanel
-from virtual_reality.gui.panels.scanimage import ScanImagePanel
-from virtual_reality.gui.panels.session import SessionPanel
-from virtual_reality.gui.panels.stimulus import StimulusPanel, STIMULUS_TYPES
-from virtual_reality.gui.panels.tracking import TrackingPanel
+from flocroscope.gui.panels.comms import CommsPanel
+from flocroscope.gui.panels.config_editor import ConfigEditorPanel
+from flocroscope.gui.panels.fictrac import FicTracPanel
+from flocroscope.gui.panels.flomington import FlomingtonPanel
+from flocroscope.gui.panels.mapping import MappingPanel
+from flocroscope.gui.panels.optogenetics import OptogeneticsPanel
+from flocroscope.gui.panels.scanimage import ScanImagePanel
+from flocroscope.gui.panels.session import SessionPanel
+from flocroscope.gui.panels.stimulus import StimulusPanel, STIMULUS_TYPES
+from flocroscope.gui.panels.tracking import TrackingPanel
 
 
 # ------------------------------------------------------------------ #
@@ -57,7 +57,7 @@ class TestStimulusPanelConstruction:
 
     def test_default_construction(self) -> None:
         """Panel can be constructed with a default config."""
-        cfg = VirtualRealityConfig()
+        cfg = FlocroscopeConfig()
         panel = StimulusPanel(cfg)
         assert panel._config is cfg
         assert panel._selected_idx == 0
@@ -65,7 +65,7 @@ class TestStimulusPanelConstruction:
 
     def test_custom_config_is_stored(self) -> None:
         """Panel stores the provided config reference."""
-        cfg = VirtualRealityConfig()
+        cfg = FlocroscopeConfig()
         cfg.arena.radius_mm = 99.0
         panel = StimulusPanel(cfg)
         assert panel._config.arena.radius_mm == 99.0
@@ -95,7 +95,7 @@ class TestSessionPanelConstruction:
 
     def test_default_construction(self) -> None:
         """Panel initialises with expected default fields."""
-        cfg = VirtualRealityConfig()
+        cfg = FlocroscopeConfig()
         panel = SessionPanel(cfg)
         assert panel._config is cfg
         assert panel._session is None
@@ -107,7 +107,7 @@ class TestSessionPanelConstruction:
 
     def test_custom_config_stored(self) -> None:
         """Panel stores the mutable config reference."""
-        cfg = VirtualRealityConfig()
+        cfg = FlocroscopeConfig()
         cfg.fly_model.phys_length_mm = 5.0
         panel = SessionPanel(cfg)
         assert panel._config.fly_model.phys_length_mm == 5.0
@@ -118,7 +118,7 @@ class TestSessionPanelStartSession:
 
     def test_start_session_creates_session(self) -> None:
         """_start_session() creates and starts a Session instance."""
-        cfg = VirtualRealityConfig()
+        cfg = FlocroscopeConfig()
         panel = SessionPanel(cfg)
         panel._experimenter = "Alice"
         panel._fly_genotype = "CS"
@@ -142,7 +142,7 @@ class TestSessionPanelStartSession:
 
     def test_start_session_sets_status_msg(self) -> None:
         """_start_session() updates the status message."""
-        cfg = VirtualRealityConfig()
+        cfg = FlocroscopeConfig()
         panel = SessionPanel(cfg)
         panel._start_session()
 
@@ -153,7 +153,7 @@ class TestSessionPanelStartSession:
 
     def test_start_session_empty_fly_id_skips_stock_id(self) -> None:
         """_start_session() does not set fly_stock_id when fly_id is empty."""
-        cfg = VirtualRealityConfig()
+        cfg = FlocroscopeConfig()
         panel = SessionPanel(cfg)
         panel._fly_id = ""
 
@@ -167,7 +167,7 @@ class TestSessionPanelStartSession:
 
     def test_start_session_with_custom_config(self) -> None:
         """Session receives the panel's config reference."""
-        cfg = VirtualRealityConfig()
+        cfg = FlocroscopeConfig()
         cfg.arena.radius_mm = 123.0
         panel = SessionPanel(cfg)
 
@@ -189,7 +189,7 @@ class TestConfigEditorPanelConstruction:
 
     def test_default_construction(self) -> None:
         """Panel initialises with empty path and status."""
-        cfg = VirtualRealityConfig()
+        cfg = FlocroscopeConfig()
         panel = ConfigEditorPanel(cfg)
         assert panel._config is cfg
         assert panel._config_path == ""
@@ -197,14 +197,14 @@ class TestConfigEditorPanelConstruction:
 
     def test_custom_config_stored(self) -> None:
         """Panel stores the config reference for later mutation."""
-        cfg = VirtualRealityConfig()
+        cfg = FlocroscopeConfig()
         cfg.display.target_fps = 120
         panel = ConfigEditorPanel(cfg)
         assert panel._config.display.target_fps == 120
 
     def test_load_config_no_path(self) -> None:
         """_load_config() reports an error when no path is set."""
-        cfg = VirtualRealityConfig()
+        cfg = FlocroscopeConfig()
         panel = ConfigEditorPanel(cfg)
         panel._config_path = ""
         panel._load_config()
@@ -212,7 +212,7 @@ class TestConfigEditorPanelConstruction:
 
     def test_save_config_no_path(self) -> None:
         """_save_config() reports an error when no path is set."""
-        cfg = VirtualRealityConfig()
+        cfg = FlocroscopeConfig()
         panel = ConfigEditorPanel(cfg)
         panel._config_path = ""
         panel._save_config()
@@ -220,7 +220,7 @@ class TestConfigEditorPanelConstruction:
 
     def test_reset_defaults(self) -> None:
         """_reset_defaults() restores all config fields to defaults."""
-        cfg = VirtualRealityConfig()
+        cfg = FlocroscopeConfig()
         cfg.arena.radius_mm = 999.0
         cfg.camera.fov_x_deg = 10.0
         cfg.display.target_fps = 1
@@ -349,9 +349,9 @@ class TestCalibrationPanelConstruction:
         assert panel._config.mode == "gray"
         assert panel._config.exposure_ms == 25.0
 
-    def test_from_virtual_reality_config(self) -> None:
-        """Panel works with config extracted from VirtualRealityConfig."""
-        vr_cfg = VirtualRealityConfig()
+    def test_from_flocroscope_config(self) -> None:
+        """Panel works with config extracted from FlocroscopeConfig."""
+        vr_cfg = FlocroscopeConfig()
         vr_cfg.calibration.camera_type = "alvium"
         vr_cfg.calibration.exposure_ms = 15.0
         panel = CalibrationPanel(vr_cfg.calibration)
@@ -484,9 +484,9 @@ class TestMappingPanelConstruction:
         assert panel._config.mapx_path == "/tmp/mapx.npy"
         assert panel._config.mapy_path == "/tmp/mapy.npy"
 
-    def test_from_virtual_reality_config(self) -> None:
-        """Panel works with config extracted from VirtualRealityConfig."""
-        vr_cfg = VirtualRealityConfig()
+    def test_from_flocroscope_config(self) -> None:
+        """Panel works with config extracted from FlocroscopeConfig."""
+        vr_cfg = FlocroscopeConfig()
         vr_cfg.warp.mapx_path = "data/mapx.experimental.npy"
         panel = MappingPanel(vr_cfg.warp)
         assert panel._config.mapx_path == "data/mapx.experimental.npy"
@@ -828,12 +828,12 @@ class TestFlomingtonPanelImport:
 
     def test_importable_from_panels_package(self) -> None:
         """FlomingtonPanel is importable from the panels package."""
-        from virtual_reality.gui.panels import FlomingtonPanel as FP
+        from flocroscope.gui.panels import FlomingtonPanel as FP
         assert FP is FlomingtonPanel
 
     def test_in_all(self) -> None:
         """FlomingtonPanel is in the __all__ list."""
-        from virtual_reality.gui.panels import __all__
+        from flocroscope.gui.panels import __all__
         assert "FlomingtonPanel" in __all__
 
 
@@ -847,14 +847,14 @@ class TestSessionPanelFlomington:
 
     def test_default_construction_no_flomington(self) -> None:
         """Panel can be constructed without flomington_client."""
-        cfg = VirtualRealityConfig()
+        cfg = FlocroscopeConfig()
         panel = SessionPanel(cfg)
         assert panel.flomington_client is None
         assert panel._flomington_lookup_done is False
 
     def test_construction_with_flomington(self) -> None:
         """Panel stores a provided flomington_client."""
-        cfg = VirtualRealityConfig()
+        cfg = FlocroscopeConfig()
         flom_cfg = FlomingtonConfig()
         client = FlomingtonClient(flom_cfg)
         panel = SessionPanel(cfg, flomington_client=client)
@@ -862,7 +862,7 @@ class TestSessionPanelFlomington:
 
     def test_lookup_populates_genotype_from_stock(self) -> None:
         """_lookup_from_flomington() populates genotype from stock."""
-        cfg = VirtualRealityConfig()
+        cfg = FlocroscopeConfig()
         flom_cfg = FlomingtonConfig()
         client = FlomingtonClient(flom_cfg)
         stock = FlyStock(
@@ -881,7 +881,7 @@ class TestSessionPanelFlomington:
 
     def test_lookup_populates_genotype_from_cross(self) -> None:
         """_lookup_from_flomington() populates genotype from cross."""
-        cfg = VirtualRealityConfig()
+        cfg = FlocroscopeConfig()
         flom_cfg = FlomingtonConfig()
         client = FlomingtonClient(flom_cfg)
         # Stock lookup returns None to fall through to cross
@@ -904,7 +904,7 @@ class TestSessionPanelFlomington:
 
     def test_lookup_not_found(self) -> None:
         """_lookup_from_flomington() reports not found."""
-        cfg = VirtualRealityConfig()
+        cfg = FlocroscopeConfig()
         flom_cfg = FlomingtonConfig()
         client = FlomingtonClient(flom_cfg)
         client.get_stock = MagicMock(return_value=None)
@@ -919,7 +919,7 @@ class TestSessionPanelFlomington:
 
     def test_lookup_no_client(self) -> None:
         """_lookup_from_flomington() does nothing when client is None."""
-        cfg = VirtualRealityConfig()
+        cfg = FlocroscopeConfig()
         panel = SessionPanel(cfg)
         panel._fly_id = "test"
         panel._fly_genotype = "original"
@@ -928,7 +928,7 @@ class TestSessionPanelFlomington:
 
     def test_lookup_empty_id(self) -> None:
         """_lookup_from_flomington() does nothing for empty ID."""
-        cfg = VirtualRealityConfig()
+        cfg = FlocroscopeConfig()
         flom_cfg = FlomingtonConfig()
         client = FlomingtonClient(flom_cfg)
         panel = SessionPanel(cfg, flomington_client=client)
@@ -1032,7 +1032,7 @@ class TestFicTracPanelConstruction:
     def test_construction_with_comms(self) -> None:
         """Panel stores comms reference."""
         hub = MagicMock()
-        cfg = VirtualRealityConfig().comms
+        cfg = FlocroscopeConfig().comms
         panel = FicTracPanel(comms=hub, config=cfg)
         assert panel._comms is hub
         assert panel._config is cfg
@@ -1050,11 +1050,11 @@ class TestFicTracPanelImport:
     """Tests for FicTracPanel import and re-export."""
 
     def test_importable_from_package(self) -> None:
-        from virtual_reality.gui.panels import FicTracPanel as FTP
+        from flocroscope.gui.panels import FicTracPanel as FTP
         assert FTP is FicTracPanel
 
     def test_in_all(self) -> None:
-        from virtual_reality.gui.panels import __all__
+        from flocroscope.gui.panels import __all__
         assert "FicTracPanel" in __all__
 
 
@@ -1089,11 +1089,11 @@ class TestScanImagePanelImport:
     """Tests for ScanImagePanel import and re-export."""
 
     def test_importable_from_package(self) -> None:
-        from virtual_reality.gui.panels import ScanImagePanel as SIP
+        from flocroscope.gui.panels import ScanImagePanel as SIP
         assert SIP is ScanImagePanel
 
     def test_in_all(self) -> None:
-        from virtual_reality.gui.panels import __all__
+        from flocroscope.gui.panels import __all__
         assert "ScanImagePanel" in __all__
 
 
@@ -1145,11 +1145,11 @@ class TestOptogeneticsPanelImport:
     """Tests for OptogeneticsPanel import and re-export."""
 
     def test_importable_from_package(self) -> None:
-        from virtual_reality.gui.panels import OptogeneticsPanel as OP
+        from flocroscope.gui.panels import OptogeneticsPanel as OP
         assert OP is OptogeneticsPanel
 
     def test_in_all(self) -> None:
-        from virtual_reality.gui.panels import __all__
+        from flocroscope.gui.panels import __all__
         assert "OptogeneticsPanel" in __all__
 
 
@@ -1171,7 +1171,7 @@ class TestBehaviourPanelConstruction:
 
     def test_construction_with_config(self) -> None:
         """Panel stores config reference."""
-        cfg = VirtualRealityConfig()
+        cfg = FlocroscopeConfig()
         panel = BehaviourPanel(config=cfg)
         assert panel._config is cfg
 
@@ -1195,11 +1195,11 @@ class TestBehaviourPanelImport:
     """Tests for BehaviourPanel import and re-export."""
 
     def test_importable_from_package(self) -> None:
-        from virtual_reality.gui.panels import BehaviourPanel as BP
+        from flocroscope.gui.panels import BehaviourPanel as BP
         assert BP is BehaviourPanel
 
     def test_in_all(self) -> None:
-        from virtual_reality.gui.panels import __all__
+        from flocroscope.gui.panels import __all__
         assert "BehaviourPanel" in __all__
 
 
@@ -1281,11 +1281,11 @@ class TestTrackingPanelImport:
     """Tests for TrackingPanel import and re-export."""
 
     def test_importable_from_package(self) -> None:
-        from virtual_reality.gui.panels import TrackingPanel as TP
+        from flocroscope.gui.panels import TrackingPanel as TP
         assert TP is TrackingPanel
 
     def test_in_all(self) -> None:
-        from virtual_reality.gui.panels import __all__
+        from flocroscope.gui.panels import __all__
         assert "TrackingPanel" in __all__
 
 
@@ -1295,22 +1295,22 @@ class TestTrackingPanelImport:
 
 
 class TestAppComputeLayout:
-    """Tests for VirtualRealityApp._compute_layout."""
+    """Tests for FlocroscopeApp._compute_layout."""
 
     def test_empty(self) -> None:
-        from virtual_reality.gui.app import VirtualRealityApp
-        assert VirtualRealityApp._compute_layout(0, 1280, 720) == []
+        from flocroscope.gui.app import FlocroscopeApp
+        assert FlocroscopeApp._compute_layout(0, 1280, 720) == []
 
     def test_single_panel_full_width(self) -> None:
-        from virtual_reality.gui.app import VirtualRealityApp
-        layout = VirtualRealityApp._compute_layout(1, 1280.0, 720.0)
+        from flocroscope.gui.app import FlocroscopeApp
+        layout = FlocroscopeApp._compute_layout(1, 1280.0, 720.0)
         assert len(layout) == 1
         x, y, w, h = layout[0]
         assert w > 1200  # nearly full width
 
     def test_four_panels_two_columns(self) -> None:
-        from virtual_reality.gui.app import VirtualRealityApp
-        layout = VirtualRealityApp._compute_layout(4, 1280.0, 720.0)
+        from flocroscope.gui.app import FlocroscopeApp
+        layout = FlocroscopeApp._compute_layout(4, 1280.0, 720.0)
         assert len(layout) == 4
         # First two should be in the same row (same y)
         assert layout[0][1] == layout[1][1]
@@ -1318,8 +1318,8 @@ class TestAppComputeLayout:
         assert layout[0][0] == layout[2][0]
 
     def test_no_overlap(self) -> None:
-        from virtual_reality.gui.app import VirtualRealityApp
-        layout = VirtualRealityApp._compute_layout(6, 1280.0, 720.0)
+        from flocroscope.gui.app import FlocroscopeApp
+        layout = FlocroscopeApp._compute_layout(6, 1280.0, 720.0)
         for i, (x1, y1, w1, h1) in enumerate(layout):
             for j, (x2, y2, w2, h2) in enumerate(layout):
                 if i >= j:
@@ -1334,14 +1334,14 @@ class TestAppComputeLayout:
                 assert no_overlap, f"Panels {i} and {j} overlap"
 
     def test_panels_cover_area(self) -> None:
-        from virtual_reality.gui.app import VirtualRealityApp
-        layout = VirtualRealityApp._compute_layout(4, 1280.0, 720.0)
+        from flocroscope.gui.app import FlocroscopeApp
+        layout = FlocroscopeApp._compute_layout(4, 1280.0, 720.0)
         total_area = sum(w * h for _, _, w, h in layout)
         display_area = 1280.0 * 700.0  # minus menu bar
         assert total_area > display_area * 0.9
 
     def test_reorganize_flag_default(self) -> None:
-        from virtual_reality.gui.app import VirtualRealityApp
-        app = VirtualRealityApp.__new__(VirtualRealityApp)
+        from flocroscope.gui.app import FlocroscopeApp
+        app = FlocroscopeApp.__new__(FlocroscopeApp)
         app._needs_reorganize = True
         assert app._needs_reorganize is True

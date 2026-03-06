@@ -1,4 +1,4 @@
-"""Tests for virtual_reality.display.window."""
+"""Tests for flocroscope.display.window."""
 
 from __future__ import annotations
 
@@ -11,12 +11,12 @@ class TestSetupPygameWindow:
     """Tests for setup_pygame_window."""
 
     def test_function_exists(self) -> None:
-        from virtual_reality.display.window import setup_pygame_window
+        from flocroscope.display.window import setup_pygame_window
 
         assert callable(setup_pygame_window)
 
     def test_signature_parameters(self) -> None:
-        from virtual_reality.display.window import setup_pygame_window
+        from flocroscope.display.window import setup_pygame_window
 
         sig = inspect.signature(setup_pygame_window)
         params = list(sig.parameters.keys())
@@ -28,31 +28,31 @@ class TestSetupPygameWindow:
         assert "opengl" in params
 
     def test_default_monitor_x(self) -> None:
-        from virtual_reality.display.window import setup_pygame_window
+        from flocroscope.display.window import setup_pygame_window
 
         sig = inspect.signature(setup_pygame_window)
         assert sig.parameters["monitor_x"].default == 0
 
     def test_default_monitor_y(self) -> None:
-        from virtual_reality.display.window import setup_pygame_window
+        from flocroscope.display.window import setup_pygame_window
 
         sig = inspect.signature(setup_pygame_window)
         assert sig.parameters["monitor_y"].default == 0
 
     def test_default_borderless(self) -> None:
-        from virtual_reality.display.window import setup_pygame_window
+        from flocroscope.display.window import setup_pygame_window
 
         sig = inspect.signature(setup_pygame_window)
         assert sig.parameters["borderless"].default is True
 
     def test_default_opengl(self) -> None:
-        from virtual_reality.display.window import setup_pygame_window
+        from flocroscope.display.window import setup_pygame_window
 
         sig = inspect.signature(setup_pygame_window)
         assert sig.parameters["opengl"].default is True
 
     def test_width_and_height_are_required(self) -> None:
-        from virtual_reality.display.window import setup_pygame_window
+        from flocroscope.display.window import setup_pygame_window
 
         sig = inspect.signature(setup_pygame_window)
         # Required params have no default (Parameter.empty).
@@ -66,7 +66,7 @@ class TestSetupPygameWindow:
     def test_creates_window_without_opengl(self) -> None:
         """Create a non-OpenGL pygame window (no GPU required)."""
         pygame = pytest.importorskip("pygame")
-        from virtual_reality.display.window import setup_pygame_window
+        from flocroscope.display.window import setup_pygame_window
 
         screen = setup_pygame_window(
             width=320,
@@ -82,7 +82,7 @@ class TestSetupPygameWindow:
         import os
 
         pygame = pytest.importorskip("pygame")
-        from virtual_reality.display.window import setup_pygame_window
+        from flocroscope.display.window import setup_pygame_window
 
         setup_pygame_window(
             width=160,

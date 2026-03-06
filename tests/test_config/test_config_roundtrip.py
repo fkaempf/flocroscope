@@ -13,8 +13,8 @@ from pathlib import Path
 import pytest
 import yaml
 
-from virtual_reality.config.loader import load_config, save_config
-from virtual_reality.config.schema import (
+from flocroscope.config.loader import load_config, save_config
+from flocroscope.config.schema import (
     ArenaConfig,
     AutonomousConfig,
     CalibrationConfig,
@@ -27,7 +27,7 @@ from virtual_reality.config.schema import (
     MovementConfig,
     ScalingConfig,
     SessionConfig,
-    VirtualRealityConfig,
+    FlocroscopeConfig,
     WarpConfig,
 )
 
@@ -38,12 +38,12 @@ from virtual_reality.config.schema import (
 
 
 def _all_section_names() -> list[str]:
-    """Return the field names for every section of VirtualRealityConfig."""
-    return [f.name for f in dataclasses.fields(VirtualRealityConfig)]
+    """Return the field names for every section of FlocroscopeConfig."""
+    return [f.name for f in dataclasses.fields(FlocroscopeConfig)]
 
 
-def _configs_equal(a: VirtualRealityConfig, b: VirtualRealityConfig) -> bool:
-    """Deep-compare two VirtualRealityConfig instances field by field.
+def _configs_equal(a: FlocroscopeConfig, b: FlocroscopeConfig) -> bool:
+    """Deep-compare two FlocroscopeConfig instances field by field.
 
     We compare each sub-dataclass individually so the assertion error
     is easier to diagnose.
@@ -65,7 +65,7 @@ class TestCommsConfigRoundtrip:
     """Verify CommsConfig survives a YAML save/load cycle."""
 
     def test_custom_comms_roundtrip(self, tmp_path: Path) -> None:
-        original = VirtualRealityConfig()
+        original = FlocroscopeConfig()
         original.comms.enabled = True
         original.comms.fictrac_host = "192.168.1.42"
         original.comms.fictrac_port = 3000
@@ -92,7 +92,7 @@ class TestCommsConfigRoundtrip:
 
     def test_comms_disabled_ports_zero(self, tmp_path: Path) -> None:
         """Ports set to 0 (disabled) should round-trip as 0."""
-        original = VirtualRealityConfig()
+        original = FlocroscopeConfig()
         original.comms.enabled = False
         original.comms.fictrac_port = 0
         original.comms.scanimage_port = 0
@@ -119,7 +119,7 @@ class TestSessionConfigRoundtrip:
     """Verify SessionConfig survives a YAML save/load cycle."""
 
     def test_custom_session_roundtrip(self, tmp_path: Path) -> None:
-        original = VirtualRealityConfig()
+        original = FlocroscopeConfig()
         original.session.output_dir = "/tmp/experiment_42"
         original.session.auto_save = False
         original.session.log_fictrac = False
@@ -138,7 +138,7 @@ class TestSessionConfigRoundtrip:
 
     def test_session_defaults_roundtrip(self, tmp_path: Path) -> None:
         """Default SessionConfig values should survive the round-trip."""
-        original = VirtualRealityConfig()
+        original = FlocroscopeConfig()
 
         path = tmp_path / "session_defaults.yaml"
         save_config(original, path)
@@ -160,8 +160,8 @@ class TestFullConfigRoundtrip:
     """save_config + load_config should be lossless for every section."""
 
     def test_default_config_roundtrip(self, tmp_path: Path) -> None:
-        """A default VirtualRealityConfig round-trips without data loss."""
-        original = VirtualRealityConfig()
+        """A default FlocroscopeConfig round-trips without data loss."""
+        original = FlocroscopeConfig()
         path = tmp_path / "full_default.yaml"
         save_config(original, path)
         loaded = load_config(path)
@@ -169,7 +169,7 @@ class TestFullConfigRoundtrip:
 
     def test_fully_customised_config_roundtrip(self, tmp_path: Path) -> None:
         """A heavily customised config round-trips without data loss."""
-        cfg = VirtualRealityConfig()
+        cfg = FlocroscopeConfig()
 
         # Arena
         cfg.arena.radius_mm = 80.0
@@ -260,7 +260,7 @@ class TestFullConfigRoundtrip:
 
     def test_all_section_names_present_in_yaml(self, tmp_path: Path) -> None:
         """The YAML file should contain a key for every config section."""
-        cfg = VirtualRealityConfig()
+        cfg = FlocroscopeConfig()
         path = tmp_path / "sections.yaml"
         save_config(cfg, path)
 
@@ -272,11 +272,11 @@ class TestFullConfigRoundtrip:
     def test_section_count_is_13(self) -> None:
         """Guard against new sections being added without updating tests.
 
-        VirtualRealityConfig currently has 13 sub-config sections.
+        FlocroscopeConfig currently has 13 sub-config sections.
         If you add a new section, update this count and add round-trip
         coverage above.
         """
-        assert len(dataclasses.fields(VirtualRealityConfig)) == 13
+        assert len(dataclasses.fields(FlocroscopeConfig)) == 13
 
 
 # ---------------------------------------------------------------------------
@@ -310,7 +310,7 @@ class TestPartialCommsYAML:
         assert cfg.comms.log_messages is False
 
         # All other sections should be at their defaults.
-        default = VirtualRealityConfig()
+        default = FlocroscopeConfig()
         for f in dataclasses.fields(default):
             if f.name == "comms":
                 continue
@@ -347,7 +347,7 @@ class TestPartialSessionYAML:
         assert cfg.session.log_stimulus is True
 
         # All other sections should be at their defaults.
-        default = VirtualRealityConfig()
+        default = FlocroscopeConfig()
         for f in dataclasses.fields(default):
             if f.name == "session":
                 continue
@@ -365,7 +365,7 @@ class TestTupleFieldsRoundtrip:
     """Tuple fields are serialized as YAML lists and must convert back."""
 
     def test_bg_color_roundtrip(self, tmp_path: Path) -> None:
-        cfg = VirtualRealityConfig()
+        cfg = FlocroscopeConfig()
         cfg.display.bg_color = (10, 20, 30)
 
         path = tmp_path / "tuple_bg.yaml"
@@ -376,7 +376,7 @@ class TestTupleFieldsRoundtrip:
         assert isinstance(loaded.display.bg_color, tuple)
 
     def test_trail_color_roundtrip(self, tmp_path: Path) -> None:
-        cfg = VirtualRealityConfig()
+        cfg = FlocroscopeConfig()
         cfg.minimap.trail_color = (0, 128, 255)
 
         path = tmp_path / "tuple_trail.yaml"
@@ -387,7 +387,7 @@ class TestTupleFieldsRoundtrip:
         assert isinstance(loaded.minimap.trail_color, tuple)
 
     def test_lighting_intensities_roundtrip(self, tmp_path: Path) -> None:
-        cfg = VirtualRealityConfig()
+        cfg = FlocroscopeConfig()
         cfg.lighting.intensities = (0.5, 1.5, 2.5, 3.5)
 
         path = tmp_path / "tuple_light.yaml"
@@ -399,7 +399,7 @@ class TestTupleFieldsRoundtrip:
 
     def test_single_element_tuple_roundtrip(self, tmp_path: Path) -> None:
         """A single-element tuple should still come back as a tuple."""
-        cfg = VirtualRealityConfig()
+        cfg = FlocroscopeConfig()
         cfg.lighting.intensities = (7.0,)
 
         path = tmp_path / "tuple_single.yaml"
@@ -411,7 +411,7 @@ class TestTupleFieldsRoundtrip:
 
     def test_empty_tuple_roundtrip(self, tmp_path: Path) -> None:
         """An empty tuple should round-trip as an empty tuple."""
-        cfg = VirtualRealityConfig()
+        cfg = FlocroscopeConfig()
         cfg.lighting.intensities = ()
 
         path = tmp_path / "tuple_empty.yaml"
@@ -423,7 +423,7 @@ class TestTupleFieldsRoundtrip:
 
     def test_yaml_stores_tuples_as_lists(self, tmp_path: Path) -> None:
         """Verify the on-disk YAML uses plain lists for tuple fields."""
-        cfg = VirtualRealityConfig()
+        cfg = FlocroscopeConfig()
         cfg.display.bg_color = (10, 20, 30)
         cfg.lighting.intensities = (1.0, 2.0, 3.0, 4.0)
 

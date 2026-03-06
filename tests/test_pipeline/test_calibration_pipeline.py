@@ -1,4 +1,4 @@
-"""Tests for virtual_reality.pipeline.calibration_pipeline."""
+"""Tests for flocroscope.pipeline.calibration_pipeline."""
 
 from __future__ import annotations
 
@@ -7,7 +7,7 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from virtual_reality.pipeline.calibration_pipeline import (
+from flocroscope.pipeline.calibration_pipeline import (
     CalibrationResult,
     load_maps,
     save_maps,

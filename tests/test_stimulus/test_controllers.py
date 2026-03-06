@@ -6,8 +6,8 @@ import math
 
 import pytest
 
-from virtual_reality.stimulus.autonomous import AutonomousFlyController
-from virtual_reality.stimulus.keyboard_control import KeyboardFlyController
+from flocroscope.stimulus.autonomous import AutonomousFlyController
+from flocroscope.stimulus.keyboard_control import KeyboardFlyController
 
 
 class TestAutonomousFlyController:

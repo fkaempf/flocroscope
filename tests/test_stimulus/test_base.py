@@ -1,10 +1,10 @@
-"""Tests for virtual_reality.stimulus.base."""
+"""Tests for flocroscope.stimulus.base."""
 
 from __future__ import annotations
 
 import pytest
 
-from virtual_reality.stimulus.base import Stimulus
+from flocroscope.stimulus.base import Stimulus
 
 
 class ConcreteStimulus(Stimulus):

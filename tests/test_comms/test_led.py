@@ -6,7 +6,7 @@ import json
 
 import pytest
 
-from virtual_reality.comms.base import LedCommand
+from flocroscope.comms.base import LedCommand
 
 
 class TestLedCommand:
@@ -60,7 +60,7 @@ class TestLedController:
     def test_instantiation(self) -> None:
         """Controller creates without starting."""
         zmq = pytest.importorskip("zmq")
-        from virtual_reality.comms.led import LedController
+        from flocroscope.comms.led import LedController
         ctrl = LedController(port=0)
         assert not ctrl.connected
         assert ctrl.poll() is None
@@ -68,7 +68,7 @@ class TestLedController:
     def test_start_stop(self) -> None:
         """Controller starts and stops cleanly."""
         zmq = pytest.importorskip("zmq")
-        from virtual_reality.comms.led import LedController
+        from flocroscope.comms.led import LedController
 
         import socket
         with socket.socket() as s:
@@ -84,6 +84,6 @@ class TestLedController:
     def test_send_without_start(self) -> None:
         """Sending without starting logs warning but doesn't crash."""
         zmq = pytest.importorskip("zmq")
-        from virtual_reality.comms.led import LedController
+        from flocroscope.comms.led import LedController
         ctrl = LedController(port=0)
         ctrl.send_command(LedCommand(command="on", intensity=1.0))

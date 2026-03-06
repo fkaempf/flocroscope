@@ -1,4 +1,4 @@
-"""Tests for virtual_reality.mapping.warp."""
+"""Tests for flocroscope.mapping.warp."""
 
 from __future__ import annotations
 
@@ -7,7 +7,7 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from virtual_reality.mapping.warp import (
+from flocroscope.mapping.warp import (
     WarpMap,
     build_proj_to_cam_map,
     load_warp_map,

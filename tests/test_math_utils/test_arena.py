@@ -1,4 +1,4 @@
-"""Tests for virtual_reality.math_utils.arena."""
+"""Tests for flocroscope.math_utils.arena."""
 
 from __future__ import annotations
 
@@ -6,7 +6,7 @@ import math
 
 import pytest
 
-from virtual_reality.math_utils.arena import (
+from flocroscope.math_utils.arena import (
     clamp_scale_for_near_plane,
     clamp_to_arena,
     compute_camera_fly_distance_mm,

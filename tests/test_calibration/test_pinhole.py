@@ -1,4 +1,4 @@
-"""Tests for virtual_reality.calibration.pinhole."""
+"""Tests for flocroscope.calibration.pinhole."""
 
 from __future__ import annotations
 
@@ -13,7 +13,7 @@ class TestCharucoBoardConfig:
 
     def test_default_values(self) -> None:
         cv2 = pytest.importorskip("cv2")
-        from virtual_reality.calibration.pinhole import CharucoBoardConfig
+        from flocroscope.calibration.pinhole import CharucoBoardConfig
 
         cfg = CharucoBoardConfig()
         assert cfg.squares_x == 7
@@ -24,7 +24,7 @@ class TestCharucoBoardConfig:
 
     def test_custom_board(self) -> None:
         cv2 = pytest.importorskip("cv2")
-        from virtual_reality.calibration.pinhole import CharucoBoardConfig
+        from flocroscope.calibration.pinhole import CharucoBoardConfig
 
         cfg = CharucoBoardConfig(
             squares_x=10,
@@ -39,7 +39,7 @@ class TestCharucoBoardConfig:
 
     def test_marker_smaller_than_square(self) -> None:
         cv2 = pytest.importorskip("cv2")
-        from virtual_reality.calibration.pinhole import CharucoBoardConfig
+        from flocroscope.calibration.pinhole import CharucoBoardConfig
 
         cfg = CharucoBoardConfig()
         assert cfg.marker_length < cfg.square_length
@@ -50,7 +50,7 @@ class TestPinholeResult:
 
     def test_creation(self) -> None:
         cv2 = pytest.importorskip("cv2")
-        from virtual_reality.calibration.pinhole import PinholeResult
+        from flocroscope.calibration.pinhole import PinholeResult
 
         result = PinholeResult(
             K=np.eye(3),
@@ -65,7 +65,7 @@ class TestPinholeResult:
 
     def test_with_image_shape(self) -> None:
         cv2 = pytest.importorskip("cv2")
-        from virtual_reality.calibration.pinhole import PinholeResult
+        from flocroscope.calibration.pinhole import PinholeResult
 
         result = PinholeResult(
             K=np.eye(3),
@@ -78,7 +78,7 @@ class TestPinholeResult:
     def test_rvecs_tvecs_are_independent(self) -> None:
         """Ensure default_factory creates separate lists per instance."""
         cv2 = pytest.importorskip("cv2")
-        from virtual_reality.calibration.pinhole import PinholeResult
+        from flocroscope.calibration.pinhole import PinholeResult
 
         r1 = PinholeResult(K=np.eye(3), D=np.zeros(5), rms=0.1)
         r2 = PinholeResult(K=np.eye(3), D=np.zeros(5), rms=0.2)
@@ -91,7 +91,7 @@ class TestMakeBoard:
 
     def test_returns_three_items(self) -> None:
         cv2 = pytest.importorskip("cv2")
-        from virtual_reality.calibration.pinhole import (
+        from flocroscope.calibration.pinhole import (
             CharucoBoardConfig,
             _make_board,
         )
@@ -102,7 +102,7 @@ class TestMakeBoard:
 
     def test_board_has_expected_size(self) -> None:
         cv2 = pytest.importorskip("cv2")
-        from virtual_reality.calibration.pinhole import (
+        from flocroscope.calibration.pinhole import (
             CharucoBoardConfig,
             _make_board,
         )
@@ -118,7 +118,7 @@ class TestParseFunctions:
 
     def test_detect_charuco_corners_signature(self) -> None:
         cv2 = pytest.importorskip("cv2")
-        from virtual_reality.calibration.pinhole import detect_charuco_corners
+        from flocroscope.calibration.pinhole import detect_charuco_corners
 
         sig = inspect.signature(detect_charuco_corners)
         params = list(sig.parameters.keys())
@@ -127,7 +127,7 @@ class TestParseFunctions:
 
     def test_calibrate_pinhole_signature(self) -> None:
         cv2 = pytest.importorskip("cv2")
-        from virtual_reality.calibration.pinhole import calibrate_pinhole
+        from flocroscope.calibration.pinhole import calibrate_pinhole
 
         sig = inspect.signature(calibrate_pinhole)
         params = list(sig.parameters.keys())
@@ -136,7 +136,7 @@ class TestParseFunctions:
 
     def test_detect_pose_signature(self) -> None:
         cv2 = pytest.importorskip("cv2")
-        from virtual_reality.calibration.pinhole import detect_pose
+        from flocroscope.calibration.pinhole import detect_pose
 
         sig = inspect.signature(detect_pose)
         params = list(sig.parameters.keys())
@@ -150,7 +150,7 @@ class TestParseFunctions:
 
     def test_detect_pose_default_params(self) -> None:
         cv2 = pytest.importorskip("cv2")
-        from virtual_reality.calibration.pinhole import detect_pose
+        from flocroscope.calibration.pinhole import detect_pose
 
         sig = inspect.signature(detect_pose)
         assert sig.parameters["undistort"].default is True
@@ -164,7 +164,7 @@ class TestCalibratePinholeValidation:
     def test_raises_on_insufficient_detections(self, tmp_path) -> None:
         """Calibration must fail if fewer than 3 valid images."""
         cv2 = pytest.importorskip("cv2")
-        from virtual_reality.calibration.pinhole import calibrate_pinhole
+        from flocroscope.calibration.pinhole import calibrate_pinhole
 
         # Empty list: no images, so 0 detections < 3.
         with pytest.raises(RuntimeError, match="need >= 3"):
@@ -173,7 +173,7 @@ class TestCalibratePinholeValidation:
     def test_raises_on_nonexistent_images(self, tmp_path) -> None:
         """Files that cv2.imread cannot read are skipped; too few remain."""
         cv2 = pytest.importorskip("cv2")
-        from virtual_reality.calibration.pinhole import calibrate_pinhole
+        from flocroscope.calibration.pinhole import calibrate_pinhole
 
         bogus = [tmp_path / f"fake_{i}.png" for i in range(5)]
         with pytest.raises(RuntimeError, match="need >= 3"):

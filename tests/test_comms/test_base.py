@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from virtual_reality.comms.base import (
+from flocroscope.comms.base import (
     FicTracFrame,
     LedCommand,
     PresenterCommand,

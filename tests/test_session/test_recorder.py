@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 
-from virtual_reality.session.recorder import (
+from flocroscope.session.recorder import (
     DEFAULT_COLUMNS,
     FrameRecorder,
 )

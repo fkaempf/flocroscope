@@ -7,8 +7,8 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from virtual_reality.comms.base import FicTracFrame
-from virtual_reality.comms.fictrac_controller import FicTracController
+from flocroscope.comms.base import FicTracFrame
+from flocroscope.comms.fictrac_controller import FicTracController
 
 
 def _make_hub(frame: FicTracFrame | None = None) -> MagicMock:

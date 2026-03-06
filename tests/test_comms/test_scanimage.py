@@ -9,7 +9,7 @@ import time
 
 import pytest
 
-from virtual_reality.comms.scanimage import ScanImageSync
+from flocroscope.comms.scanimage import ScanImageSync
 
 
 def _wait_for_port(port: int, timeout: float = 2.0) -> bool:

@@ -1,4 +1,4 @@
-"""Tests for virtual_reality.rendering.glb_loader."""
+"""Tests for flocroscope.rendering.glb_loader."""
 
 from __future__ import annotations
 
@@ -9,7 +9,7 @@ import pytest
 cv2 = pytest.importorskip("cv2")
 pytest.importorskip("pygltflib")
 
-from virtual_reality.rendering.glb_loader import (
+from flocroscope.rendering.glb_loader import (
     DrawCall,
     Mesh,
     VERTEX_STRIDE,

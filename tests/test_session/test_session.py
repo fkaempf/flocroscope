@@ -9,8 +9,8 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from virtual_reality.config.schema import VirtualRealityConfig
-from virtual_reality.session.session import (
+from flocroscope.config.schema import FlocroscopeConfig
+from flocroscope.session.session import (
     Session,
     SessionMetadata,
     TrialRecord,
@@ -70,7 +70,7 @@ class TestSession:
 
     def test_creation_with_config(self) -> None:
         """Session captures config snapshot."""
-        cfg = VirtualRealityConfig()
+        cfg = FlocroscopeConfig()
         session = Session(config=cfg)
         snap = session.metadata.config_snapshot
         assert "arena_radius_mm" in snap
@@ -270,7 +270,7 @@ class TestSessionSave:
 
     def test_save_uses_config_dir(self, tmp_path: Path) -> None:
         """Save uses config.session.output_dir when available."""
-        cfg = VirtualRealityConfig()
+        cfg = FlocroscopeConfig()
         cfg.session.output_dir = str(tmp_path / "custom")
         session = Session(config=cfg)
         session.start()

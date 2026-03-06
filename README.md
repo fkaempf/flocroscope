@@ -132,7 +132,7 @@ platform-aware defaults are used.
 ## Architecture
 
 ```
-src/virtual_reality/
+src/flocroscope/
     config/           # Dataclass schemas, YAML loader, platform paths
     cameras/          # Camera Protocol + Alvium/RotPy drivers + factory
     calibration/      # Fisheye/pinhole calibration, intrinsics I/O
@@ -349,10 +349,10 @@ reference with every field documented.
 ### Loading Configuration
 
 ```python
-from virtual_reality.config.schema import VirtualRealityConfig
-from virtual_reality.config.loader import load_config, save_config
+from flocroscope.config.schema import FlocroscopeConfig
+from flocroscope.config.loader import load_config, save_config
 
-config = VirtualRealityConfig()           # All defaults
+config = FlocroscopeConfig()           # All defaults
 config = load_config("my_config.yaml")    # Merge with defaults
 save_config(config, "my_config.yaml")     # Save current state
 ```
@@ -394,10 +394,10 @@ pip install -e ".[dev]"
 pytest tests/
 
 # Run tests with coverage
-pytest tests/ --cov=virtual_reality
+pytest tests/ --cov=flocroscope
 
 # Type checking
-mypy src/virtual_reality/
+mypy src/flocroscope/
 
 # Linting
 ruff check src/

@@ -11,7 +11,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ### Package Structure
 
 ```
-src/virtual_reality/
+src/flocroscope/
     config/           # Dataclass schemas, YAML loader, platform paths
     cameras/          # Camera Protocol + Alvium/RotPy drivers + factory
     calibration/      # Fisheye/pinhole calibration, intrinsics I/O
@@ -32,7 +32,7 @@ src/virtual_reality/
 - **Projector warp maps**: `mapx.npy`/`mapy.npy` files define pixel mapping from projector space to camera space
 - **Structured-light**: Gray code for integer precision + sine phase for subpixel accuracy
 - **Camera Protocol**: `cameras.base.Camera` defines the interface (start/grab/stop)
-- **Config system**: Nested dataclasses with YAML serialization (`config.schema.VirtualRealityConfig`)
+- **Config system**: Nested dataclasses with YAML serialization (`config.schema.FlocroscopeConfig`)
 - **Stimulus lifecycle**: `setup() -> update(dt, events) -> render() -> teardown()`
 
 ### Communications (`comms/`)
@@ -88,10 +88,10 @@ pip install -e ".[dev]"
 pytest tests/
 
 # Run tests with coverage
-pytest tests/ --cov=virtual_reality
+pytest tests/ --cov=flocroscope
 
 # Type checking
-mypy src/virtual_reality/
+mypy src/flocroscope/
 
 # Linting
 ruff check src/
@@ -129,7 +129,7 @@ vr-hub        # Standalone CommsHub for testing communications
 
 ## Legacy Files
 
-Original scripts are archived in `src/virtual_reality/legacy/` for reference. The key decomposition:
+Original scripts are archived in `src/flocroscope/legacy/` for reference. The key decomposition:
 
 | Legacy File | New Location |
 |---|---|

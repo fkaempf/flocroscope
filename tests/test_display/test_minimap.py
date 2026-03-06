@@ -1,4 +1,4 @@
-"""Tests for virtual_reality.display.minimap."""
+"""Tests for flocroscope.display.minimap."""
 
 from __future__ import annotations
 
@@ -7,7 +7,7 @@ import pytest
 
 cv2 = pytest.importorskip("cv2")
 
-from virtual_reality.display.minimap import (
+from flocroscope.display.minimap import (
     build_minimap_base,
     draw_arrow,
     draw_minimap_dynamic,

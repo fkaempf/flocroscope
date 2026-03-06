@@ -18,12 +18,12 @@ from pathlib import Path
 
 import pytest
 
-from virtual_reality.config.schema import (
+from flocroscope.config.schema import (
     CommsConfig,
     SessionConfig,
-    VirtualRealityConfig,
+    FlocroscopeConfig,
 )
-from virtual_reality.session.session import Session
+from flocroscope.session.session import Session
 
 
 # ------------------------------------------------------------------ #
@@ -36,12 +36,12 @@ class TestDefaultConfig:
 
     def test_comms_disabled_by_default(self) -> None:
         """CommsConfig defaults to disabled."""
-        cfg = VirtualRealityConfig()
+        cfg = FlocroscopeConfig()
         assert cfg.comms.enabled is False
 
     def test_session_output_dir_default(self) -> None:
         """SessionConfig has a reasonable default output dir."""
-        cfg = VirtualRealityConfig()
+        cfg = FlocroscopeConfig()
         assert cfg.session.output_dir == "data/sessions"
 
     def test_all_ports_have_defaults(self) -> None:
@@ -63,7 +63,7 @@ class TestSessionWithoutComms:
 
     def test_session_lifecycle_no_comms(self, tmp_path: Path) -> None:
         """Full session lifecycle without comms."""
-        cfg = VirtualRealityConfig()
+        cfg = FlocroscopeConfig()
         cfg.session.output_dir = str(tmp_path)
 
         session = Session(config=cfg, stimulus_type="TestStimulus")
@@ -89,7 +89,7 @@ class TestSessionWithoutComms:
         self, tmp_path: Path,
     ) -> None:
         """Session can be saved with zero trials."""
-        cfg = VirtualRealityConfig()
+        cfg = FlocroscopeConfig()
         cfg.session.output_dir = str(tmp_path)
 
         session = Session(config=cfg)
@@ -134,7 +134,7 @@ class TestCommsAllDisabled:
 
     def test_hub_starts_with_no_endpoints(self) -> None:
         """Hub with all ports=0 starts cleanly."""
-        from virtual_reality.comms.hub import CommsHub
+        from flocroscope.comms.hub import CommsHub
 
         cfg = CommsConfig(
             enabled=True,
@@ -157,7 +157,7 @@ class TestCommsAllDisabled:
         assert hub.poll_presenter() is None
 
         # Sending to disabled endpoints is a no-op
-        from virtual_reality.comms.base import LedCommand, PresenterCommand
+        from flocroscope.comms.base import LedCommand, PresenterCommand
         hub.send_led(LedCommand(command="on"))
         hub.send_presenter(PresenterCommand(command="present"))
 
@@ -165,7 +165,7 @@ class TestCommsAllDisabled:
 
     def test_hub_status_all_disconnected(self) -> None:
         """Status dict shows all endpoints disconnected."""
-        from virtual_reality.comms.hub import CommsHub
+        from flocroscope.comms.hub import CommsHub
 
         cfg = CommsConfig(
             enabled=True,
@@ -192,18 +192,18 @@ class TestCommsMasterSwitch:
 
     def test_config_comms_disabled(self) -> None:
         """Default config has comms disabled."""
-        cfg = VirtualRealityConfig()
+        cfg = FlocroscopeConfig()
         assert cfg.comms.enabled is False
 
     def test_hub_not_created_when_disabled(self) -> None:
         """Stimulus setup skips hub when comms.enabled is False."""
         # Simulates the logic in fly_3d.py setup()
-        cfg = VirtualRealityConfig()
+        cfg = FlocroscopeConfig()
         assert cfg.comms.enabled is False
 
         comms = None
         if cfg.comms.enabled:
-            from virtual_reality.comms.hub import CommsHub
+            from flocroscope.comms.hub import CommsHub
             comms = CommsHub(cfg.comms)
 
         assert comms is None
@@ -219,8 +219,8 @@ class TestFicTracControllerNoData:
 
     def test_controller_stays_at_origin(self) -> None:
         """Without FicTrac data, position stays at origin."""
-        from virtual_reality.comms.hub import CommsHub
-        from virtual_reality.comms.fictrac_controller import (
+        from flocroscope.comms.hub import CommsHub
+        from flocroscope.comms.fictrac_controller import (
             FicTracController,
         )
 
@@ -252,9 +252,9 @@ class TestSessionWithEmptyComms:
 
     def test_session_with_empty_hub(self, tmp_path: Path) -> None:
         """Session collects events from empty hub without errors."""
-        from virtual_reality.comms.hub import CommsHub
+        from flocroscope.comms.hub import CommsHub
 
-        cfg = VirtualRealityConfig()
+        cfg = FlocroscopeConfig()
         cfg.session.output_dir = str(tmp_path)
 
         comms_cfg = CommsConfig(
@@ -290,7 +290,7 @@ class TestFrameRecorderStandalone:
 
     def test_recorder_standalone(self, tmp_path: Path) -> None:
         """Record frames without session or comms."""
-        from virtual_reality.session.recorder import FrameRecorder
+        from flocroscope.session.recorder import FrameRecorder
 
         path = tmp_path / "frames.csv"
         rec = FrameRecorder(path, columns=["frame", "x", "y"])
@@ -313,7 +313,7 @@ class TestImportSafety:
 
     def test_comms_base_import(self) -> None:
         """comms.base imports without pyzmq."""
-        from virtual_reality.comms.base import (
+        from flocroscope.comms.base import (
             Endpoint,
             FicTracFrame,
             LedCommand,
@@ -326,12 +326,12 @@ class TestImportSafety:
 
     def test_comms_hub_import(self) -> None:
         """comms.hub imports without pyzmq."""
-        from virtual_reality.comms.hub import CommsHub
+        from flocroscope.comms.hub import CommsHub
         assert CommsHub is not None
 
     def test_comms_init_import(self) -> None:
         """comms.__init__ imports without pyzmq."""
-        from virtual_reality.comms import (
+        from flocroscope.comms import (
             CommsHub,
             FicTracFrame,
             LedCommand,
@@ -341,7 +341,7 @@ class TestImportSafety:
 
     def test_fictrac_receiver_import(self) -> None:
         """fictrac module imports without pyzmq (uses stdlib)."""
-        from virtual_reality.comms.fictrac import (
+        from flocroscope.comms.fictrac import (
             FicTracReceiver,
             parse_fictrac_line,
         )
@@ -349,17 +349,17 @@ class TestImportSafety:
 
     def test_scanimage_import(self) -> None:
         """scanimage module imports without pyzmq (uses stdlib)."""
-        from virtual_reality.comms.scanimage import ScanImageSync
+        from flocroscope.comms.scanimage import ScanImageSync
         assert ScanImageSync is not None
 
     def test_session_import(self) -> None:
         """session module imports without any comms."""
-        from virtual_reality.session import Session
+        from flocroscope.session import Session
         assert Session is not None
 
     def test_flomington_import(self) -> None:
         """Flomington module imports without supabase-py."""
-        from virtual_reality.comms.flomington import (
+        from flocroscope.comms.flomington import (
             FlomingtonClient,
             FlomingtonConfig,
             FlyCross,
@@ -378,7 +378,7 @@ class TestFlomingtonDegradation:
 
     def test_connect_without_url(self) -> None:
         """Connect returns False without Supabase URL."""
-        from virtual_reality.comms.flomington import (
+        from flocroscope.comms.flomington import (
             FlomingtonClient,
             FlomingtonConfig,
         )
@@ -388,7 +388,7 @@ class TestFlomingtonDegradation:
 
     def test_all_queries_return_empty(self) -> None:
         """All query methods return None or empty lists."""
-        from virtual_reality.comms.flomington import (
+        from flocroscope.comms.flomington import (
             FlomingtonClient,
             FlomingtonConfig,
         )
@@ -400,7 +400,7 @@ class TestFlomingtonDegradation:
 
     def test_tag_and_push_return_false(self) -> None:
         """Session tagging and result push return False."""
-        from virtual_reality.comms.flomington import (
+        from flocroscope.comms.flomington import (
             FlomingtonClient,
             FlomingtonConfig,
         )
@@ -419,7 +419,7 @@ class TestStimulusBaseDegradation:
 
     def test_get_state_default_empty(self) -> None:
         """Default get_state() returns empty dict."""
-        from virtual_reality.stimulus.base import Stimulus
+        from flocroscope.stimulus.base import Stimulus
 
         class Dummy(Stimulus):
             def setup(self) -> None:
@@ -445,7 +445,7 @@ class TestFly3DInitSafety:
 
     def test_comms_is_none_before_setup(self) -> None:
         """_comms attribute exists and is None after __init__."""
-        from virtual_reality.stimulus.fly_3d import Fly3DStimulus
+        from flocroscope.stimulus.fly_3d import Fly3DStimulus
 
         stim = Fly3DStimulus()
         assert stim._comms is None
@@ -453,7 +453,7 @@ class TestFly3DInitSafety:
 
     def test_session_creation_with_none_comms(self) -> None:
         """Session can be created with stimulus._comms = None."""
-        from virtual_reality.stimulus.fly_3d import Fly3DStimulus
+        from flocroscope.stimulus.fly_3d import Fly3DStimulus
 
         stim = Fly3DStimulus()
         session = Session(
@@ -477,7 +477,7 @@ class TestConfigLoadingDegradation:
 
     def test_load_minimal_yaml(self, tmp_path: Path) -> None:
         """Loading a YAML with only arena section uses defaults."""
-        from virtual_reality.config.loader import load_config
+        from flocroscope.config.loader import load_config
 
         yaml_path = tmp_path / "minimal.yaml"
         yaml_path.write_text("arena:\n  radius_mm: 50.0\n")
@@ -491,7 +491,7 @@ class TestConfigLoadingDegradation:
 
     def test_load_empty_yaml(self, tmp_path: Path) -> None:
         """Loading an empty YAML file uses all defaults."""
-        from virtual_reality.config.loader import load_config
+        from flocroscope.config.loader import load_config
 
         yaml_path = tmp_path / "empty.yaml"
         yaml_path.write_text("")
@@ -502,7 +502,7 @@ class TestConfigLoadingDegradation:
 
     def test_load_unknown_keys_ignored(self, tmp_path: Path) -> None:
         """Unknown YAML keys are silently ignored."""
-        from virtual_reality.config.loader import load_config
+        from flocroscope.config.loader import load_config
 
         yaml_path = tmp_path / "extra.yaml"
         yaml_path.write_text(
