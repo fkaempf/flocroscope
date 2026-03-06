@@ -107,6 +107,32 @@ class StimulusPanel:
             cfg.movement.speed_mm_s = max(0.0, val)
 
         imgui.separator()
+        imgui.text("Collision:")
+
+        changed, val = imgui.slider_float(
+            "Near-Plane Safety",
+            cfg.scaling.near_plane_safety,
+            0.1, 3.0, "%.2f",
+        )
+        if changed:
+            cfg.scaling.near_plane_safety = val
+
+        changed, val = imgui.checkbox(
+            "Auto Min Distance",
+            cfg.scaling.auto_min_distance,
+        )
+        if changed:
+            cfg.scaling.auto_min_distance = val
+
+        if not cfg.scaling.auto_min_distance:
+            changed, val = imgui.input_float(
+                "Min Distance (mm)",
+                cfg.scaling.min_cam_fly_dist_mm, 0.5, 1.0,
+            )
+            if changed:
+                cfg.scaling.min_cam_fly_dist_mm = max(0.1, val)
+
+        imgui.separator()
 
         # Check if subprocess is still running
         if self._process is not None:

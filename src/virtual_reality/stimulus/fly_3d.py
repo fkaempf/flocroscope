@@ -385,22 +385,16 @@ class Fly3DStimulus(Stimulus):
         self._z_far = 10.0 * cfg.arena.radius_mm
 
         # Derive minimum 3D camera-fly distance from near plane.
-        if cfg.scaling.auto_min_distance:
-            self._min_dist_3d = compute_min_cam_fly_dist_3d(
-                z_near=self._z_near,
-                fly_bounding_radius=self._fly_bounding_radius,
-                fly_base_scale=self._fly_base_scale,
-                screen_distance_mm=cfg.scaling.screen_distance_mm,
-                safety_margin=cfg.scaling.near_plane_safety,
-            )
-            logger.info(
-                "Derived min 3D cam-fly distance: %.2f mm "
-                "(near=%.1f, bound_r=%.3f, base_scale=%.4f)",
-                self._min_dist_3d, self._z_near,
-                self._fly_bounding_radius, self._fly_base_scale,
-            )
-        else:
-            self._min_dist_3d = cfg.scaling.min_cam_fly_dist_mm
+        # Recomputed each frame in update() so live adjustments take
+        # effect immediately.  Log the initial value here.
+        self._min_dist_3d = self._compute_min_dist()
+        logger.info(
+            "Initial min 3D cam-fly distance: %.2f mm "
+            "(near=%.1f, bound_r=%.3f, base_scale=%.4f, safety=%.2f)",
+            self._min_dist_3d, self._z_near,
+            self._fly_bounding_radius, self._fly_base_scale,
+            cfg.scaling.near_plane_safety,
+        )
 
         if self._proj_mode == PROJ_PERSPECTIVE:
             self._proj_mat = perspective(
@@ -538,6 +532,19 @@ class Fly3DStimulus(Stimulus):
             self._map_cu, self._map_cv, self._map_scale,
         )
 
+    def _compute_min_dist(self) -> float:
+        """Compute the minimum 3D cam-fly distance from current config."""
+        cfg = self.config
+        if cfg.scaling.auto_min_distance:
+            return compute_min_cam_fly_dist_3d(
+                z_near=self._z_near,
+                fly_bounding_radius=self._fly_bounding_radius,
+                fly_base_scale=self._fly_base_scale,
+                screen_distance_mm=cfg.scaling.screen_distance_mm,
+                safety_margin=cfg.scaling.near_plane_safety,
+            )
+        return cfg.scaling.min_cam_fly_dist_mm
+
     # --------------------------------------------------------------- update
 
     def update(self, dt: float, events: list) -> None:
@@ -546,12 +553,33 @@ class Fly3DStimulus(Stimulus):
 
         cfg = self.config
 
+        # Recompute min distance each frame (allows live adjustment)
+        self._min_dist_3d = self._compute_min_dist()
+
         # Handle events
         for event in events:
             if event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_u:
                     self._use_warp = not self._use_warp
                     logger.info("Warp: %s", self._use_warp)
+                elif event.key == pygame.K_RIGHTBRACKET:
+                    cfg.scaling.near_plane_safety = min(
+                        cfg.scaling.near_plane_safety + 0.1, 3.0,
+                    )
+                    logger.info(
+                        "Near-plane safety: %.2f  →  min dist: %.2f mm",
+                        cfg.scaling.near_plane_safety,
+                        self._min_dist_3d,
+                    )
+                elif event.key == pygame.K_LEFTBRACKET:
+                    cfg.scaling.near_plane_safety = max(
+                        cfg.scaling.near_plane_safety - 0.1, 0.1,
+                    )
+                    logger.info(
+                        "Near-plane safety: %.2f  →  min dist: %.2f mm",
+                        cfg.scaling.near_plane_safety,
+                        self._min_dist_3d,
+                    )
 
         # Update controller
         if self._use_fictrac:

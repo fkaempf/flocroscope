@@ -227,7 +227,7 @@ class ScalingConfig:
     dist_scale_smooth_hz: float = 8.0
     min_cam_fly_dist_mm: float = 1.5
     auto_min_distance: bool = True
-    near_plane_safety: float = 1.2
+    near_plane_safety: float = 1.0
 
 
 @dataclass

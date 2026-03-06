@@ -26,6 +26,10 @@ from virtual_reality.config.schema import (
     VirtualRealityConfig,
     WarpConfig,
 )
+from virtual_reality.gui.panels.behaviour import (
+    BehaviourPanel,
+    EXPERIMENT_TYPES,
+)
 from virtual_reality.gui.panels.calibration import (
     CalibrationPanel,
     _FISHEYE_FILES,
@@ -33,10 +37,14 @@ from virtual_reality.gui.panels.calibration import (
 )
 from virtual_reality.gui.panels.comms import CommsPanel
 from virtual_reality.gui.panels.config_editor import ConfigEditorPanel
+from virtual_reality.gui.panels.fictrac import FicTracPanel
 from virtual_reality.gui.panels.flomington import FlomingtonPanel
 from virtual_reality.gui.panels.mapping import MappingPanel
+from virtual_reality.gui.panels.optogenetics import OptogeneticsPanel
+from virtual_reality.gui.panels.scanimage import ScanImagePanel
 from virtual_reality.gui.panels.session import SessionPanel
 from virtual_reality.gui.panels.stimulus import StimulusPanel, STIMULUS_TYPES
+from virtual_reality.gui.panels.tracking import TrackingPanel
 
 
 # ------------------------------------------------------------------ #
@@ -979,3 +987,361 @@ class TestDrawMethodsRequireImgui:
         """FlomingtonPanel.draw() requires imgui."""
         imgui = pytest.importorskip("imgui")
         pytest.skip("imgui available but OpenGL context required for draw()")
+
+    def test_fictrac_draw_skips_without_imgui(self) -> None:
+        """FicTracPanel.draw() requires imgui."""
+        imgui = pytest.importorskip("imgui")
+        pytest.skip("imgui available but OpenGL context required for draw()")
+
+    def test_scanimage_draw_skips_without_imgui(self) -> None:
+        """ScanImagePanel.draw() requires imgui."""
+        imgui = pytest.importorskip("imgui")
+        pytest.skip("imgui available but OpenGL context required for draw()")
+
+    def test_optogenetics_draw_skips_without_imgui(self) -> None:
+        """OptogeneticsPanel.draw() requires imgui."""
+        imgui = pytest.importorskip("imgui")
+        pytest.skip("imgui available but OpenGL context required for draw()")
+
+    def test_behaviour_draw_skips_without_imgui(self) -> None:
+        """BehaviourPanel.draw() requires imgui."""
+        imgui = pytest.importorskip("imgui")
+        pytest.skip("imgui available but OpenGL context required for draw()")
+
+    def test_tracking_draw_skips_without_imgui(self) -> None:
+        """TrackingPanel.draw() requires imgui."""
+        imgui = pytest.importorskip("imgui")
+        pytest.skip("imgui available but OpenGL context required for draw()")
+
+
+# ------------------------------------------------------------------ #
+#  FicTracPanel
+# ------------------------------------------------------------------ #
+
+
+class TestFicTracPanelConstruction:
+    """Tests for FicTracPanel instantiation."""
+
+    def test_default_construction(self) -> None:
+        """Panel can be created with no arguments."""
+        panel = FicTracPanel()
+        assert panel._comms is None
+        assert panel._config is None
+        assert panel.frames_received == 0
+
+    def test_construction_with_comms(self) -> None:
+        """Panel stores comms reference."""
+        hub = MagicMock()
+        cfg = VirtualRealityConfig().comms
+        panel = FicTracPanel(comms=hub, config=cfg)
+        assert panel._comms is hub
+        assert panel._config is cfg
+
+    def test_initial_state_zeroed(self) -> None:
+        """All tracking values start at zero."""
+        panel = FicTracPanel()
+        assert panel._heading_deg == 0.0
+        assert panel._speed == 0.0
+        assert panel._x_mm == 0.0
+        assert panel._y_mm == 0.0
+
+
+class TestFicTracPanelImport:
+    """Tests for FicTracPanel import and re-export."""
+
+    def test_importable_from_package(self) -> None:
+        from virtual_reality.gui.panels import FicTracPanel as FTP
+        assert FTP is FicTracPanel
+
+    def test_in_all(self) -> None:
+        from virtual_reality.gui.panels import __all__
+        assert "FicTracPanel" in __all__
+
+
+# ------------------------------------------------------------------ #
+#  ScanImagePanel
+# ------------------------------------------------------------------ #
+
+
+class TestScanImagePanelConstruction:
+    """Tests for ScanImagePanel instantiation."""
+
+    def test_default_construction(self) -> None:
+        """Panel can be created with no arguments."""
+        panel = ScanImagePanel()
+        assert panel._comms is None
+        assert panel.trial_count == 0
+        assert panel.frame_count == 0
+
+    def test_construction_with_comms(self) -> None:
+        """Panel stores comms reference."""
+        hub = MagicMock()
+        panel = ScanImagePanel(comms=hub)
+        assert panel._comms is hub
+
+    def test_initial_not_acquiring(self) -> None:
+        """Panel starts in non-acquiring state."""
+        panel = ScanImagePanel()
+        assert panel._acquiring is False
+
+
+class TestScanImagePanelImport:
+    """Tests for ScanImagePanel import and re-export."""
+
+    def test_importable_from_package(self) -> None:
+        from virtual_reality.gui.panels import ScanImagePanel as SIP
+        assert SIP is ScanImagePanel
+
+    def test_in_all(self) -> None:
+        from virtual_reality.gui.panels import __all__
+        assert "ScanImagePanel" in __all__
+
+
+# ------------------------------------------------------------------ #
+#  OptogeneticsPanel
+# ------------------------------------------------------------------ #
+
+
+class TestOptogeneticsPanelConstruction:
+    """Tests for OptogeneticsPanel instantiation."""
+
+    def test_default_construction(self) -> None:
+        """Panel can be created with no arguments."""
+        panel = OptogeneticsPanel()
+        assert panel._comms is None
+        assert panel.pulse_count == 0
+        assert panel.intensity == 1.0
+
+    def test_construction_with_comms(self) -> None:
+        """Panel stores comms reference."""
+        hub = MagicMock()
+        panel = OptogeneticsPanel(comms=hub)
+        assert panel._comms is hub
+
+    def test_initial_parameters(self) -> None:
+        """Default parameters are sensible."""
+        panel = OptogeneticsPanel()
+        assert panel._duration_ms == 50.0
+        assert panel._channel == 0
+
+
+class TestOptogeneticsPanelSend:
+    """Tests for OptogeneticsPanel._send()."""
+
+    def test_send_without_comms_no_error(self) -> None:
+        """_send() is a no-op when comms is None."""
+        panel = OptogeneticsPanel()
+        panel._send("on", 1.0)  # should not raise
+
+    def test_send_with_comms(self) -> None:
+        """_send() calls comms.send_led()."""
+        hub = MagicMock()
+        panel = OptogeneticsPanel(comms=hub)
+        panel._send("pulse", 0.5, 100.0)
+        hub.send_led.assert_called_once()
+
+
+class TestOptogeneticsPanelImport:
+    """Tests for OptogeneticsPanel import and re-export."""
+
+    def test_importable_from_package(self) -> None:
+        from virtual_reality.gui.panels import OptogeneticsPanel as OP
+        assert OP is OptogeneticsPanel
+
+    def test_in_all(self) -> None:
+        from virtual_reality.gui.panels import __all__
+        assert "OptogeneticsPanel" in __all__
+
+
+# ------------------------------------------------------------------ #
+#  BehaviourPanel
+# ------------------------------------------------------------------ #
+
+
+class TestBehaviourPanelConstruction:
+    """Tests for BehaviourPanel instantiation."""
+
+    def test_default_construction(self) -> None:
+        """Panel can be created with no arguments."""
+        panel = BehaviourPanel()
+        assert panel._config is None
+        assert panel._comms is None
+        assert panel.session is None
+        assert panel.experiment_type == "Behavior"
+
+    def test_construction_with_config(self) -> None:
+        """Panel stores config reference."""
+        cfg = VirtualRealityConfig()
+        panel = BehaviourPanel(config=cfg)
+        assert panel._config is cfg
+
+    def test_experiment_types_available(self) -> None:
+        """All expected experiment types are listed."""
+        assert "2P" in EXPERIMENT_TYPES
+        assert "Optogenetics" in EXPERIMENT_TYPES
+        assert "Behavior" in EXPERIMENT_TYPES
+        assert "2P+VR" in EXPERIMENT_TYPES
+        assert "VR" in EXPERIMENT_TYPES
+
+    def test_session_setter(self) -> None:
+        """session property can be updated."""
+        panel = BehaviourPanel()
+        mock_session = MagicMock()
+        panel.session = mock_session
+        assert panel.session is mock_session
+
+
+class TestBehaviourPanelImport:
+    """Tests for BehaviourPanel import and re-export."""
+
+    def test_importable_from_package(self) -> None:
+        from virtual_reality.gui.panels import BehaviourPanel as BP
+        assert BP is BehaviourPanel
+
+    def test_in_all(self) -> None:
+        from virtual_reality.gui.panels import __all__
+        assert "BehaviourPanel" in __all__
+
+
+# ------------------------------------------------------------------ #
+#  TrackingPanel
+# ------------------------------------------------------------------ #
+
+
+class TestTrackingPanelConstruction:
+    """Tests for TrackingPanel instantiation."""
+
+    def test_default_construction(self) -> None:
+        """Panel can be created with no arguments."""
+        panel = TrackingPanel()
+        assert panel._comms is None
+        assert panel._arena_radius == 40.0
+        assert panel.distance_mm == 0.0
+        assert panel.heading_offset_deg == 0.0
+
+    def test_custom_arena_radius(self) -> None:
+        """Panel stores custom arena radius."""
+        panel = TrackingPanel(arena_radius_mm=200.0)
+        assert panel._arena_radius == 200.0
+
+    def test_set_virtual_state(self) -> None:
+        """set_virtual_state() updates virtual fly position."""
+        panel = TrackingPanel()
+        panel.set_virtual_state(10.0, 20.0, 90.0)
+        assert panel._virtual_x == 10.0
+        assert panel._virtual_y == 20.0
+        assert panel._virtual_heading_deg == 90.0
+
+    def test_set_real_state(self) -> None:
+        """set_real_state() updates real fly position."""
+        panel = TrackingPanel()
+        panel.set_real_state(5.0, -3.0, 45.0)
+        assert panel._real_x == 5.0
+        assert panel._real_y == -3.0
+        assert panel._real_heading_deg == 45.0
+
+
+class TestTrackingPanelMetrics:
+    """Tests for TrackingPanel computed properties."""
+
+    def test_distance_zero_when_colocated(self) -> None:
+        """Distance is 0 when both flies are at origin."""
+        panel = TrackingPanel()
+        assert panel.distance_mm == 0.0
+
+    def test_distance_basic(self) -> None:
+        """Distance is correct for a simple offset."""
+        panel = TrackingPanel()
+        panel.set_virtual_state(3.0, 4.0, 0.0)
+        assert abs(panel.distance_mm - 5.0) < 0.01
+
+    def test_heading_offset_zero(self) -> None:
+        """Heading offset is 0 when both face the same direction."""
+        panel = TrackingPanel()
+        panel.set_virtual_state(0, 0, 90.0)
+        panel.set_real_state(0, 0, 90.0)
+        assert abs(panel.heading_offset_deg) < 0.01
+
+    def test_heading_offset_positive(self) -> None:
+        """Heading offset is +45 when virtual is 45 deg clockwise."""
+        panel = TrackingPanel()
+        panel.set_virtual_state(0, 0, 135.0)
+        panel.set_real_state(0, 0, 90.0)
+        assert abs(panel.heading_offset_deg - 45.0) < 0.01
+
+    def test_heading_offset_wraps(self) -> None:
+        """Heading offset wraps around 360 correctly."""
+        panel = TrackingPanel()
+        panel.set_virtual_state(0, 0, 10.0)
+        panel.set_real_state(0, 0, 350.0)
+        assert abs(panel.heading_offset_deg - 20.0) < 0.01
+
+
+class TestTrackingPanelImport:
+    """Tests for TrackingPanel import and re-export."""
+
+    def test_importable_from_package(self) -> None:
+        from virtual_reality.gui.panels import TrackingPanel as TP
+        assert TP is TrackingPanel
+
+    def test_in_all(self) -> None:
+        from virtual_reality.gui.panels import __all__
+        assert "TrackingPanel" in __all__
+
+
+# ------------------------------------------------------------------ #
+#  App layout helpers
+# ------------------------------------------------------------------ #
+
+
+class TestAppComputeLayout:
+    """Tests for VirtualRealityApp._compute_layout."""
+
+    def test_empty(self) -> None:
+        from virtual_reality.gui.app import VirtualRealityApp
+        assert VirtualRealityApp._compute_layout(0, 1280, 720) == []
+
+    def test_single_panel_full_width(self) -> None:
+        from virtual_reality.gui.app import VirtualRealityApp
+        layout = VirtualRealityApp._compute_layout(1, 1280.0, 720.0)
+        assert len(layout) == 1
+        x, y, w, h = layout[0]
+        assert w > 1200  # nearly full width
+
+    def test_four_panels_two_columns(self) -> None:
+        from virtual_reality.gui.app import VirtualRealityApp
+        layout = VirtualRealityApp._compute_layout(4, 1280.0, 720.0)
+        assert len(layout) == 4
+        # First two should be in the same row (same y)
+        assert layout[0][1] == layout[1][1]
+        # First and third should be in the same column (same x)
+        assert layout[0][0] == layout[2][0]
+
+    def test_no_overlap(self) -> None:
+        from virtual_reality.gui.app import VirtualRealityApp
+        layout = VirtualRealityApp._compute_layout(6, 1280.0, 720.0)
+        for i, (x1, y1, w1, h1) in enumerate(layout):
+            for j, (x2, y2, w2, h2) in enumerate(layout):
+                if i >= j:
+                    continue
+                # Check no overlap
+                no_overlap = (
+                    x1 + w1 <= x2 + 5  # allow pad tolerance
+                    or x2 + w2 <= x1 + 5
+                    or y1 + h1 <= y2 + 5
+                    or y2 + h2 <= y1 + 5
+                )
+                assert no_overlap, f"Panels {i} and {j} overlap"
+
+    def test_panels_cover_area(self) -> None:
+        from virtual_reality.gui.app import VirtualRealityApp
+        layout = VirtualRealityApp._compute_layout(4, 1280.0, 720.0)
+        total_area = sum(w * h for _, _, w, h in layout)
+        display_area = 1280.0 * 700.0  # minus menu bar
+        assert total_area > display_area * 0.9
+
+    def test_reorganize_flag_default(self) -> None:
+        from virtual_reality.gui.app import VirtualRealityApp
+        app = VirtualRealityApp.__new__(VirtualRealityApp)
+        app._needs_reorganize = True
+        assert app._needs_reorganize is True

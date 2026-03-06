@@ -392,17 +392,53 @@ class FlySpriteStimulus(Stimulus):
         bg = cfg.display.bg_color
         self._canvas[:] = bg[:3]
 
-        # Select sprite frame from heading
-        idx = _angle_to_index(self._fly_heading, self._n_frames)
+        # Camera-relative coordinates
+        dx = self._fly_x - self._cam_x
+        dy = self._fly_y - self._cam_y
+        sin_ch = math.sin(self._cam_heading)
+        cos_ch = math.cos(self._cam_heading)
+        x_local = dx * cos_ch - dy * sin_ch
+        z_local = dx * sin_ch + dy * cos_ch
 
-        # Distance-based scaling
-        dist_mm = max(1.0, abs(self._fly_y) + 1.0)
+        # Only render if fly is in front of camera
+        if z_local < 1.0:
+            # Fly is behind camera — show blank frame
+            if self._warp_enabled and self._use_warp:
+                import cv2
+                proj_frame = cv2.remap(
+                    self._canvas, self._mapx, self._mapy,
+                    interpolation=cv2.INTER_LINEAR,
+                    borderMode=cv2.BORDER_CONSTANT,
+                    borderValue=(0, 0, 0),
+                )
+            else:
+                proj_frame = self._canvas
+            from virtual_reality.display.surface import bgr_to_surface
+            surf = bgr_to_surface(proj_frame)
+            target_w, target_h = self._screen.get_size()
+            if (
+                surf.get_width() != target_w
+                or surf.get_height() != target_h
+            ):
+                surf = pygame.transform.scale(
+                    surf, (target_w, target_h),
+                )
+            self._screen.blit(surf, (0, 0))
+            return
+
+        # Sprite heading relative to camera
+        rel_heading = math.radians(self._fly_heading) - self._cam_heading
+        yaw_deg = math.degrees(rel_heading) % 360.0
+        idx = _angle_to_index(yaw_deg, self._n_frames)
+
+        # Distance-based scaling (along camera forward axis)
+        dist_mm = max(1.0, z_local)
         height_px = self._ref_height_px * (self._ref_dist_mm / dist_mm)
         scale = height_px / max(1.0, self._ref_sprite_h)
-        scale = max(0.1, min(scale, 10.0))
+        scale = max(0.1, min(scale, 3.0))
 
-        # Screen position
-        px = int(round(self._cx + self._fly_x * self._px_per_mm))
+        # Screen position (orthographic in x, perspective in size)
+        px = int(round(self._cx + x_local * self._px_per_mm))
         py = self._cy
 
         # Draw sprite
