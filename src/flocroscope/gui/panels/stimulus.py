@@ -39,16 +39,17 @@ class StimulusPanel:
         self._running = False
         self._process: subprocess.Popen | None = None
         self._status_msg = ""
-        self.window_tag = "win_stimulus"
+        self.group_tag = "grp_stimulus"
 
-    def build(self) -> None:
+    @property
+    def window_tag(self) -> str:
+        return self.group_tag
+
+    def build(self, parent: int | str = 0) -> None:
         """Create all DearPyGui widgets (called once)."""
         import dearpygui.dearpygui as dpg
 
-        with dpg.window(
-            label="Stimulus Control",
-            tag=self.window_tag,
-        ):
+        with dpg.group(parent=parent, tag=self.group_tag):
             dpg.add_text("Stimulus Type:")
             dpg.add_radio_button(
                 items=[t[0] for t in STIMULUS_TYPES],

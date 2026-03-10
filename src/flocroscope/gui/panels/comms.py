@@ -25,7 +25,11 @@ class CommsPanel:
 
     def __init__(self, comms: CommsHub | None = None) -> None:
         self._comms = comms
-        self.window_tag = "win_comms"
+        self.group_tag = "grp_comms"
+
+    @property
+    def window_tag(self) -> str:
+        return self.group_tag
 
     @property
     def comms(self) -> CommsHub | None:
@@ -36,13 +40,11 @@ class CommsPanel:
     def comms(self, value: CommsHub | None) -> None:
         self._comms = value
 
-    def build(self) -> None:
+    def build(self, parent: int | str = 0) -> None:
         """Create all DearPyGui widgets (called once)."""
         import dearpygui.dearpygui as dpg
 
-        with dpg.window(
-            label="Communications", tag=self.window_tag,
-        ):
+        with dpg.group(parent=parent, tag=self.group_tag):
             dpg.add_text(
                 "Comms not active", tag="comms_inactive",
                 color=(153, 153, 153),

@@ -43,20 +43,22 @@ class SessionPanel:
         self._notes = ""
         self._status_msg = ""
         self._flomington_lookup_done = False
-        self.window_tag = "win_session"
+        self.group_tag = "grp_session"
+
+    @property
+    def window_tag(self) -> str:
+        return self.group_tag
 
     @property
     def flomington_client(self) -> FlomingtonClient | None:
         """The Flomington client, if configured."""
         return self._flomington
 
-    def build(self) -> None:
+    def build(self, parent: int | str = 0) -> None:
         """Create all DearPyGui widgets (called once)."""
         import dearpygui.dearpygui as dpg
 
-        with dpg.window(
-            label="Session", tag=self.window_tag,
-        ):
+        with dpg.group(parent=parent, tag=self.group_tag):
             # --- Setup group (visible when no session) ---
             with dpg.group(tag="sess_setup_group"):
                 dpg.add_text("New Session")
@@ -69,6 +71,7 @@ class SessionPanel:
                 dpg.add_input_text(
                     label="Fly Genotype",
                     tag="sess_genotype",
+                    callback=self._on_genotype,
                 )
                 dpg.add_input_text(
                     label="Fly/Cross ID",
@@ -80,6 +83,7 @@ class SessionPanel:
                     tag="sess_notes",
                     multiline=True,
                     height=200,
+                    callback=self._on_notes,
                 )
 
                 # Flomington section
@@ -195,10 +199,9 @@ class SessionPanel:
                 )
 
             # Show lookup button only when ID present
-            fly_id = dpg.get_value("sess_fly_id")
             if (
-                fly_id
-                and fly_id.strip()
+                self._fly_id
+                and self._fly_id.strip()
                 and not self._flomington_lookup_done
             ):
                 dpg.show_item("sess_flom_lookup_btn")
@@ -270,9 +273,15 @@ class SessionPanel:
     def _on_experimenter(self, sender, app_data, user_data):
         self._experimenter = app_data
 
+    def _on_genotype(self, sender, app_data, user_data):
+        self._fly_genotype = app_data
+
     def _on_fly_id_change(self, sender, app_data, user_data):
         self._fly_id = app_data
         self._flomington_lookup_done = False
+
+    def _on_notes(self, sender, app_data, user_data):
+        self._notes = app_data
 
     def _on_flom_lookup(self, sender, app_data, user_data):
         self._lookup_from_flomington()
@@ -281,15 +290,11 @@ class SessionPanel:
         self._start_session()
 
     def _on_begin_trial(self, sender, app_data, user_data):
-        import dearpygui.dearpygui as dpg
-
         if self._session is None:
             return
-        genotype = dpg.get_value("sess_genotype")
-        fly_id = dpg.get_value("sess_fly_id")
         self._session.begin_trial(metadata={
-            "genotype": genotype,
-            "fly_id": fly_id,
+            "genotype": self._fly_genotype,
+            "fly_id": self._fly_id,
         })
         self._status_msg = (
             f"Trial {self._session.current_trial.trial_number}"
@@ -323,19 +328,17 @@ class SessionPanel:
 
     def _lookup_from_flomington(self) -> None:
         """Look up fly/cross info from Flomington."""
-        import dearpygui.dearpygui as dpg
-
         if self._flomington is None:
             return
 
-        fly_id = dpg.get_value("sess_fly_id")
+        fly_id = self._fly_id
         if not fly_id or not fly_id.strip():
             return
         fly_id = fly_id.strip()
 
         stock = self._flomington.get_stock(fly_id)
         if stock is not None and stock.genotype:
-            dpg.set_value("sess_genotype", stock.genotype)
+            self._fly_genotype = stock.genotype
             self._flomington_lookup_done = True
             self._status_msg = (
                 f"Populated genotype from stock: {stock.name}"
@@ -355,7 +358,7 @@ class SessionPanel:
                 parts.append(cross.male_genotype)
             if parts:
                 genotype = " x ".join(parts)
-                dpg.set_value("sess_genotype", genotype)
+                self._fly_genotype = genotype
                 self._flomington_lookup_done = True
                 self._status_msg = (
                     f"Populated genotype from cross: "
@@ -373,23 +376,17 @@ class SessionPanel:
 
     def _start_session(self) -> None:
         """Create and start a new session."""
-        import dearpygui.dearpygui as dpg
         from flocroscope.session.session import Session
-
-        experimenter = dpg.get_value("sess_experimenter")
-        genotype = dpg.get_value("sess_genotype")
-        fly_id = dpg.get_value("sess_fly_id")
-        notes = dpg.get_value("sess_notes")
 
         self._session = Session(
             config=self._config,
-            experimenter=experimenter,
+            experimenter=self._experimenter,
             stimulus_type="gui",
         )
-        self._session.metadata.fly_genotype = genotype
-        if fly_id:
-            self._session.metadata.fly_stock_id = fly_id
-        self._session.metadata.notes = notes
+        self._session.metadata.fly_genotype = self._fly_genotype
+        if self._fly_id:
+            self._session.metadata.fly_stock_id = self._fly_id
+        self._session.metadata.notes = self._notes
         self._session.start()
         self._status_msg = (
             f"Session {self._session.session_id} started"

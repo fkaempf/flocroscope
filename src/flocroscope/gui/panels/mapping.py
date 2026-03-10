@@ -33,7 +33,11 @@ class MappingPanel:
         self._warp_map: WarpMap | None = None
         self._mapping_thread: threading.Thread | None = None
         self._mapping_running = False
-        self.window_tag = "win_mapping"
+        self.group_tag = "grp_mapping"
+
+    @property
+    def window_tag(self) -> str:
+        return self.group_tag
 
     @property
     def warp_map(self) -> WarpMap | None:
@@ -45,13 +49,11 @@ class MappingPanel:
         """Whether the mapping pipeline is currently running."""
         return self._mapping_running
 
-    def build(self) -> None:
+    def build(self, parent: int | str = 0) -> None:
         """Create all DearPyGui widgets (called once)."""
         import dearpygui.dearpygui as dpg
 
-        with dpg.window(
-            label="Mapping", tag=self.window_tag,
-        ):
+        with dpg.group(parent=parent, tag=self.group_tag):
             dpg.add_text("Warp Map Paths:")
             dpg.add_separator()
             dpg.add_text("", tag="map_mapx")

@@ -26,15 +26,17 @@ class ConfigEditorPanel:
         self._config = config
         self._config_path = ""
         self._status_msg = ""
-        self.window_tag = "win_config"
+        self.group_tag = "grp_config"
 
-    def build(self) -> None:
+    @property
+    def window_tag(self) -> str:
+        return self.group_tag
+
+    def build(self, parent: int | str = 0) -> None:
         """Create all DearPyGui widgets (called once)."""
         import dearpygui.dearpygui as dpg
 
-        with dpg.window(
-            label="Configuration", tag=self.window_tag,
-        ):
+        with dpg.group(parent=parent, tag=self.group_tag):
             dpg.add_input_text(
                 label="Config YAML",
                 tag="cfg_path",
@@ -124,9 +126,7 @@ class ConfigEditorPanel:
 
     def _load_config(self) -> None:
         """Load config from the specified YAML file."""
-        import dearpygui.dearpygui as dpg
-
-        path = dpg.get_value("cfg_path")
+        path = self._config_path
         if not path:
             self._status_msg = "No path specified"
             return
@@ -147,9 +147,7 @@ class ConfigEditorPanel:
 
     def _save_config(self) -> None:
         """Save current config to the specified YAML file."""
-        import dearpygui.dearpygui as dpg
-
-        path = dpg.get_value("cfg_path")
+        path = self._config_path
         if not path:
             self._status_msg = "No path specified"
             return

@@ -46,7 +46,11 @@ class FicTracPanel:
         self._x_mm: float = 0.0
         self._y_mm: float = 0.0
         self._frames_received: int = 0
-        self.window_tag = "win_fictrac"
+        self.group_tag = "grp_fictrac"
+
+    @property
+    def window_tag(self) -> str:
+        return self.group_tag
 
     # -- public helpers for tests --
 
@@ -56,13 +60,12 @@ class FicTracPanel:
 
     # -- widget creation --
 
-    def build(self) -> None:
+    def build(self, parent: int | str = 0) -> None:
         """Create all DearPyGui widgets (called once)."""
         import dearpygui.dearpygui as dpg
 
-        with dpg.window(
-            label="FicTrac / Treadmill",
-            tag=self.window_tag,
+        with dpg.group(
+            parent=parent, tag=self.group_tag,
         ):
             dpg.add_text(
                 "FicTrac not connected",

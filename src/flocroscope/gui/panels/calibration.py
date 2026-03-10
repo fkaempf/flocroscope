@@ -38,20 +38,22 @@ class CalibrationPanel:
         self._last_rms: float | None = None
         self._calibration_thread: threading.Thread | None = None
         self._calibrating = False
-        self.window_tag = "win_calibration"
+        self.group_tag = "grp_calibration"
+
+    @property
+    def window_tag(self) -> str:
+        return self.group_tag
 
     @property
     def is_calibrating(self) -> bool:
         """Whether a calibration is currently running."""
         return self._calibrating
 
-    def build(self) -> None:
+    def build(self, parent: int | str = 0) -> None:
         """Create all DearPyGui widgets (called once)."""
         import dearpygui.dearpygui as dpg
 
-        with dpg.window(
-            label="Calibration", tag=self.window_tag,
-        ):
+        with dpg.group(parent=parent, tag=self.group_tag):
             dpg.add_text("Hardware Settings:")
             dpg.add_separator()
             dpg.add_text("", tag="cal_camera")
