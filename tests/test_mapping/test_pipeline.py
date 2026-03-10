@@ -1,4 +1,4 @@
-"""Tests for virtual_reality.mapping.pipeline."""
+"""Tests for flocroscope.mapping.pipeline."""
 
 from __future__ import annotations
 
@@ -7,7 +7,7 @@ import pytest
 
 cv2 = pytest.importorskip("cv2")
 
-from virtual_reality.mapping.pipeline import (
+from flocroscope.mapping.pipeline import (
     despeckle_maps,
     process_raw_maps,
 )

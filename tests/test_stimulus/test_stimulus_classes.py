@@ -10,14 +10,14 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from virtual_reality.config.schema import VirtualRealityConfig
-from virtual_reality.stimulus.fly_3d import Fly3DStimulus
-from virtual_reality.stimulus.fly_sprite import (
+from flocroscope.config.schema import FlocroscopeConfig
+from flocroscope.stimulus.fly_3d import Fly3DStimulus
+from flocroscope.stimulus.fly_sprite import (
     FlySpriteStimulus,
     _angle_to_index,
     _render_sprite_masked,
 )
-from virtual_reality.stimulus.warp_circle import WarpCircleStimulus
+from flocroscope.stimulus.warp_circle import WarpCircleStimulus
 
 
 class TestFly3DStimulus:
@@ -28,7 +28,7 @@ class TestFly3DStimulus:
         assert s.config is not None
 
     def test_custom_config(self) -> None:
-        cfg = VirtualRealityConfig()
+        cfg = FlocroscopeConfig()
         s = Fly3DStimulus(config=cfg)
         assert s.config is cfg
 
@@ -53,7 +53,7 @@ class TestFlySpriteStimulus:
         assert s.config is not None
 
     def test_custom_config(self) -> None:
-        cfg = VirtualRealityConfig()
+        cfg = FlocroscopeConfig()
         s = FlySpriteStimulus(config=cfg)
         assert s.config is cfg
 
@@ -85,6 +85,18 @@ class TestWarpCircleStimulus:
     def test_paused_initially_false(self) -> None:
         s = WarpCircleStimulus()
         assert s._paused is False
+
+    def test_get_state_before_setup(self) -> None:
+        """get_state() returns base keys before setup(); positional keys absent."""
+        s = WarpCircleStimulus(freq_hz=0.5)
+        state = s.get_state()
+        assert state["paused"] is False
+        assert state["use_warp"] is True
+        assert state["freq_hz"] == 0.5
+        # Positional keys are not available until setup()/render()
+        assert "circle_x" not in state
+        assert "circle_y" not in state
+        assert "radius" not in state
 
     @pytest.mark.gpu
     def test_lifecycle(self) -> None:

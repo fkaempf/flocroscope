@@ -1,4 +1,4 @@
-"""Tests for virtual_reality.math_utils.geometry."""
+"""Tests for flocroscope.math_utils.geometry."""
 
 from __future__ import annotations
 
@@ -7,7 +7,7 @@ import math
 import numpy as np
 import pytest
 
-from virtual_reality.math_utils.geometry import (
+from flocroscope.math_utils.geometry import (
     compute_light_dirs,
     heading_to_direction,
     wrap_angle_deg,

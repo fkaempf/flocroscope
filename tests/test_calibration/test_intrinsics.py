@@ -1,4 +1,4 @@
-"""Tests for virtual_reality.calibration.intrinsics."""
+"""Tests for flocroscope.calibration.intrinsics."""
 
 from __future__ import annotations
 
@@ -7,7 +7,7 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from virtual_reality.calibration.intrinsics import (
+from flocroscope.calibration.intrinsics import (
     Intrinsics,
     load_intrinsics,
     save_intrinsics,

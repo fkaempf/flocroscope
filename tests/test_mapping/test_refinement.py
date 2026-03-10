@@ -1,4 +1,4 @@
-"""Tests for virtual_reality.mapping.refinement."""
+"""Tests for flocroscope.mapping.refinement."""
 
 from __future__ import annotations
 
@@ -7,7 +7,7 @@ import pytest
 
 cv2 = pytest.importorskip("cv2")
 
-from virtual_reality.mapping.refinement import (
+from flocroscope.mapping.refinement import (
     expand_mask,
     refine_with_visibility,
 )

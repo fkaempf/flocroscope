@@ -1,10 +1,10 @@
-"""Tests for virtual_reality.config.schema."""
+"""Tests for flocroscope.config.schema."""
 
 from __future__ import annotations
 
 import dataclasses
 
-from virtual_reality.config.schema import (
+from flocroscope.config.schema import (
     ArenaConfig,
     AutonomousConfig,
     CameraConfig,
@@ -15,7 +15,7 @@ from virtual_reality.config.schema import (
     MinimapConfig,
     MovementConfig,
     ScalingConfig,
-    VirtualRealityConfig,
+    FlocroscopeConfig,
     WarpConfig,
 )
 
@@ -129,22 +129,22 @@ class TestCalibrationConfig:
         assert cfg.mode == "sine_hybrid"
 
 
-class TestVirtualRealityConfig:
-    """Tests for VirtualRealityConfig."""
+class TestFlocroscopeConfig:
+    """Tests for FlocroscopeConfig."""
 
     def test_default_construction(self) -> None:
-        cfg = VirtualRealityConfig()
+        cfg = FlocroscopeConfig()
         assert cfg.arena.radius_mm == 40.0
         assert cfg.fly_model.phys_length_mm == 3.0
         assert cfg.camera.projection == "equirect"
 
     def test_nested_modification(self) -> None:
-        cfg = VirtualRealityConfig()
+        cfg = FlocroscopeConfig()
         cfg.arena.radius_mm = 80.0
         assert cfg.arena.radius_mm == 80.0
 
     def test_all_fields_are_dataclasses(self) -> None:
-        cfg = VirtualRealityConfig()
+        cfg = FlocroscopeConfig()
         for f in dataclasses.fields(cfg):
             value = getattr(cfg, f.name)
             assert dataclasses.is_dataclass(value), (
@@ -152,7 +152,7 @@ class TestVirtualRealityConfig:
             )
 
     def test_independent_instances(self) -> None:
-        cfg1 = VirtualRealityConfig()
-        cfg2 = VirtualRealityConfig()
+        cfg1 = FlocroscopeConfig()
+        cfg2 = FlocroscopeConfig()
         cfg1.arena.radius_mm = 999.0
         assert cfg2.arena.radius_mm == 40.0

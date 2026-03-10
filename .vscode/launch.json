@@ -1,0 +1,37 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "GUI",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "flocroscope.gui.app",
+            "env": {"PYTHONPATH": "${workspaceFolder}/src"},
+            "console": "integratedTerminal"
+        },
+        {
+            "name": "Fly 3D Stimulus",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "flocroscope.stimulus.fly_3d",
+            "env": {"PYTHONPATH": "${workspaceFolder}/src"},
+            "console": "integratedTerminal"
+        },
+        {
+            "name": "Fly 2D Stimulus",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "flocroscope.stimulus.fly_sprite",
+            "env": {"PYTHONPATH": "${workspaceFolder}/src"},
+            "console": "integratedTerminal"
+        },
+        {
+            "name": "Warp Circle Test",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "flocroscope.stimulus.warp_circle",
+            "env": {"PYTHONPATH": "${workspaceFolder}/src"},
+            "console": "integratedTerminal"
+        }
+    ]
+}

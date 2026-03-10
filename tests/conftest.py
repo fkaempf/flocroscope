@@ -1,4 +1,4 @@
-"""Shared test fixtures for the virtual_reality test suite."""
+"""Shared test fixtures for the flocroscope test suite."""
 
 from __future__ import annotations
 
@@ -7,7 +7,7 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from virtual_reality.config.schema import VirtualRealityConfig
+from flocroscope.config.schema import FlocroscopeConfig
 
 
 def pytest_collection_modifyitems(
@@ -25,9 +25,9 @@ def pytest_collection_modifyitems(
 
 
 @pytest.fixture
-def default_config() -> VirtualRealityConfig:
-    """Return a VirtualRealityConfig with default values."""
-    return VirtualRealityConfig()
+def default_config() -> FlocroscopeConfig:
+    """Return a FlocroscopeConfig with default values."""
+    return FlocroscopeConfig()
 
 
 @pytest.fixture

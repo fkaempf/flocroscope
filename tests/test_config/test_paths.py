@@ -1,4 +1,4 @@
-"""Tests for virtual_reality.config.paths."""
+"""Tests for flocroscope.config.paths."""
 
 from __future__ import annotations
 
@@ -7,7 +7,7 @@ from unittest import mock
 
 import pytest
 
-from virtual_reality.config.paths import (
+from flocroscope.config.paths import (
     find_assets_dir,
     find_config_dir,
     find_project_root,
@@ -19,7 +19,7 @@ class TestResolvePlatformPath:
     """Tests for resolve_platform_path."""
 
     def test_linux_on_linux(self) -> None:
-        with mock.patch("virtual_reality.config.paths.sys") as m:
+        with mock.patch("flocroscope.config.paths.sys") as m:
             m.platform = "linux"
             result = resolve_platform_path(
                 linux_path="/linux/path",
@@ -29,7 +29,7 @@ class TestResolvePlatformPath:
             assert result == Path("/linux/path")
 
     def test_darwin_on_mac(self) -> None:
-        with mock.patch("virtual_reality.config.paths.sys") as m:
+        with mock.patch("flocroscope.config.paths.sys") as m:
             m.platform = "darwin"
             result = resolve_platform_path(
                 mac_path="/Users/test",
@@ -38,7 +38,7 @@ class TestResolvePlatformPath:
             assert result == Path("/Users/test")
 
     def test_fallback_when_platform_empty(self) -> None:
-        with mock.patch("virtual_reality.config.paths.sys") as m:
+        with mock.patch("flocroscope.config.paths.sys") as m:
             m.platform = "linux"
             result = resolve_platform_path(
                 linux_path="",
@@ -47,7 +47,7 @@ class TestResolvePlatformPath:
             assert result == Path("D:\\fallback")
 
     def test_no_path_raises(self) -> None:
-        with mock.patch("virtual_reality.config.paths.sys") as m:
+        with mock.patch("flocroscope.config.paths.sys") as m:
             m.platform = "linux"
             with pytest.raises(ValueError, match="No path"):
                 resolve_platform_path()

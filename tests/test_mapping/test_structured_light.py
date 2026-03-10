@@ -1,4 +1,4 @@
-"""Tests for virtual_reality.mapping.structured_light."""
+"""Tests for flocroscope.mapping.structured_light."""
 
 from __future__ import annotations
 
@@ -7,7 +7,7 @@ import math
 import numpy as np
 import pytest
 
-from virtual_reality.mapping.structured_light import (
+from flocroscope.mapping.structured_light import (
     decode_gray,
     decode_phase,
     generate_graycode_patterns,

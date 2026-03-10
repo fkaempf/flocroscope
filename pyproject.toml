@@ -3,7 +3,7 @@ requires = ["setuptools>=64", "setuptools-scm"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "virtual-reality"
+name = "flocroscope"
 version = "0.1.0"
 description = "Virtual fly stimulus and projector-camera calibration system for neuroscience experiments."
 requires-python = ">=3.10"
@@ -21,23 +21,26 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+display = ["screeninfo>=0.8"]
 alvium = ["harvesters>=1.4"]
 flir = ["rotpy>=0.3"]
-gui = ["imgui[pygame]>=2.0"]
+gui = ["dearpygui>=2.0"]
+comms = ["pyzmq>=25.0"]
 dev = [
     "pytest>=7.0",
     "pytest-cov",
     "ruff",
     "mypy",
 ]
-all = ["virtual-reality[alvium,flir,gui,dev]"]
+all = ["flocroscope[display,alvium,flir,gui,comms,dev]"]
 
 [project.scripts]
-vr-fly3d = "virtual_reality.stimulus.fly_3d:main"
-vr-fly2d = "virtual_reality.stimulus.fly_sprite:main"
-vr-calibrate = "virtual_reality.pipeline.calibration_pipeline:main"
-vr-warp-test = "virtual_reality.stimulus.warp_circle:main"
-vr-gui = "virtual_reality.gui.app:main"
+vr-fly3d = "flocroscope.stimulus.fly_3d:main"
+vr-fly2d = "flocroscope.stimulus.fly_sprite:main"
+vr-calibrate = "flocroscope.pipeline.calibration_pipeline:main"
+vr-warp-test = "flocroscope.stimulus.warp_circle:main"
+vr-gui = "flocroscope.gui.app:main"
+vr-hub = "flocroscope.comms.hub:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]

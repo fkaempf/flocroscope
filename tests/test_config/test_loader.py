@@ -1,4 +1,4 @@
-"""Tests for virtual_reality.config.loader."""
+"""Tests for flocroscope.config.loader."""
 
 from __future__ import annotations
 
@@ -7,15 +7,15 @@ from pathlib import Path
 import pytest
 import yaml
 
-from virtual_reality.config.loader import (
+from flocroscope.config.loader import (
     _apply_dict_to_dataclass,
     _dataclass_to_dict,
     load_config,
     save_config,
 )
-from virtual_reality.config.schema import (
+from flocroscope.config.schema import (
     ArenaConfig,
-    VirtualRealityConfig,
+    FlocroscopeConfig,
 )
 
 
@@ -28,14 +28,14 @@ class TestDataclassToDict:
         assert result == {"radius_mm": 50.0}
 
     def test_nested_dataclass(self) -> None:
-        cfg = VirtualRealityConfig()
+        cfg = FlocroscopeConfig()
         result = _dataclass_to_dict(cfg)
         assert isinstance(result, dict)
         assert "arena" in result
         assert result["arena"]["radius_mm"] == 40.0
 
     def test_tuple_fields_become_lists(self) -> None:
-        cfg = VirtualRealityConfig()
+        cfg = FlocroscopeConfig()
         result = _dataclass_to_dict(cfg)
         assert isinstance(result["lighting"]["intensities"], list)
 
@@ -49,7 +49,7 @@ class TestApplyDictToDataclass:
         assert cfg.radius_mm == 99.0
 
     def test_nested_update(self) -> None:
-        cfg = VirtualRealityConfig()
+        cfg = FlocroscopeConfig()
         _apply_dict_to_dataclass(cfg, {
             "arena": {"radius_mm": 77.0},
             "display": {"target_fps": 30},
@@ -63,7 +63,7 @@ class TestApplyDictToDataclass:
         assert cfg.radius_mm == 40.0
 
     def test_list_to_tuple_conversion(self) -> None:
-        cfg = VirtualRealityConfig()
+        cfg = FlocroscopeConfig()
         _apply_dict_to_dataclass(cfg, {
             "lighting": {"intensities": [1.0, 1.0, 1.0, 1.0]},
         })
@@ -104,7 +104,7 @@ class TestSaveConfig:
     """Tests for save_config."""
 
     def test_roundtrip(self, tmp_path: Path) -> None:
-        original = VirtualRealityConfig()
+        original = FlocroscopeConfig()
         original.arena.radius_mm = 123.0
         original.camera.projection = "perspective"
 
@@ -117,12 +117,12 @@ class TestSaveConfig:
 
     def test_creates_parent_dirs(self, tmp_path: Path) -> None:
         path = tmp_path / "subdir" / "deep" / "config.yaml"
-        save_config(VirtualRealityConfig(), path)
+        save_config(FlocroscopeConfig(), path)
         assert path.exists()
 
     def test_output_is_valid_yaml(self, tmp_path: Path) -> None:
         path = tmp_path / "out.yaml"
-        save_config(VirtualRealityConfig(), path)
+        save_config(FlocroscopeConfig(), path)
         data = yaml.safe_load(path.read_text())
         assert isinstance(data, dict)
         assert "arena" in data

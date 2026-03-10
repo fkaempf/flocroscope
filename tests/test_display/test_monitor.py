@@ -1,10 +1,10 @@
-"""Tests for virtual_reality.display.monitor."""
+"""Tests for flocroscope.display.monitor."""
 
 from __future__ import annotations
 
 from unittest import mock
 
-from virtual_reality.display.monitor import MonitorInfo, pick_monitor
+from flocroscope.display.monitor import MonitorInfo, pick_monitor
 
 
 class TestMonitorInfo:
@@ -32,7 +32,7 @@ class TestPickMonitor:
             mock.Mock(x=1920, y=0, width=1280, height=800, name="Right"),
         ]
         with mock.patch(
-            "virtual_reality.display.monitor.get_monitors",
+            "flocroscope.display.monitor.get_monitors",
             create=True,
         ):
             pass

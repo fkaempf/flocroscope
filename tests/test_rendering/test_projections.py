@@ -1,10 +1,10 @@
-"""Tests for virtual_reality.rendering.projections."""
+"""Tests for flocroscope.rendering.projections."""
 
 from __future__ import annotations
 
 import pytest
 
-from virtual_reality.rendering.projections import (
+from flocroscope.rendering.projections import (
     PROJ_EQUIDISTANT,
     PROJ_EQUIRECTANGULAR,
     PROJ_PERSPECTIVE,
