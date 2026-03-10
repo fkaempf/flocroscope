@@ -21,8 +21,7 @@ logger = logging.getLogger(__name__)
 # Stimulus options with display names and module paths
 STIMULUS_TYPES = [
     ("Fly 3D (GLB)", "fly_3d", "flocroscope.stimulus.fly_3d"),
-    ("Fly 2D (Sprite)", "fly_sprite", "flocroscope.stimulus.fly_sprite"),
-    ("Warp Circle (Calibration)", "warp_circle", "flocroscope.stimulus.warp_circle"),
+    ("Black Ball", "black_ball", "flocroscope.stimulus.black_ball"),
 ]
 
 

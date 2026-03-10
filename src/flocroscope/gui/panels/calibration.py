@@ -9,12 +9,16 @@ and is triggered in a background thread.
 from __future__ import annotations
 
 import logging
+import subprocess
+import sys
+import tempfile
 import threading
 import time
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from flocroscope.config.schema import CalibrationConfig
+    from flocroscope.config.schema import CalibrationConfig, FlocroscopeConfig
 
 logger = logging.getLogger(__name__)
 
@@ -32,12 +36,20 @@ class CalibrationPanel:
         config: Calibration configuration (mutable).
     """
 
-    def __init__(self, config: CalibrationConfig) -> None:
+    def __init__(
+        self,
+        config: CalibrationConfig,
+        full_config: FlocroscopeConfig | None = None,
+    ) -> None:
         self._config = config
+        self._full_config = full_config
         self._status_msg = ""
         self._last_rms: float | None = None
         self._calibration_thread: threading.Thread | None = None
         self._calibrating = False
+        self._warp_process: subprocess.Popen | None = None
+        self._warp_running = False
+        self._warp_status = ""
         self.group_tag = "grp_calibration"
 
     @property
@@ -83,6 +95,27 @@ class CalibrationPanel:
             dpg.add_text("Status:")
             dpg.add_text("", tag="cal_status", wrap=400)
             dpg.add_text("", tag="cal_rms")
+
+            dpg.add_spacer(height=16)
+            dpg.add_separator()
+            dpg.add_text("Warp Circle Test:")
+            dpg.add_text(
+                "Launch a moving warp circle to visually "
+                "verify projector-camera mapping.",
+                wrap=400,
+                color=(153, 153, 153),
+            )
+            with dpg.group(horizontal=True):
+                dpg.add_button(
+                    label="Launch Warp Circle",
+                    tag="cal_warp_btn",
+                    callback=self._on_warp_launch,
+                )
+                dpg.add_text(
+                    "", tag="cal_warp_running",
+                    color=(102, 255, 102),
+                )
+            dpg.add_text("", tag="cal_warp_status")
 
     def update(self) -> None:
         """Push live data each frame."""
@@ -146,6 +179,33 @@ class CalibrationPanel:
                 "cal_rms",
                 f"Last RMS: {self._last_rms:.4f} px",
             )
+
+        # Warp circle subprocess
+        if self._warp_process is not None:
+            ret = self._warp_process.poll()
+            if ret is not None:
+                self._warp_running = False
+                self._warp_status = (
+                    "Warp circle exited normally."
+                    if ret == 0
+                    else f"Warp circle exited with code {ret}."
+                )
+                self._warp_process = None
+
+        if self._warp_running:
+            dpg.configure_item(
+                "cal_warp_btn", label="Stop Warp Circle",
+            )
+            dpg.set_value(
+                "cal_warp_running", "Running...",
+            )
+        else:
+            dpg.configure_item(
+                "cal_warp_btn", label="Launch Warp Circle",
+            )
+            dpg.set_value("cal_warp_running", "")
+
+        dpg.set_value("cal_warp_status", self._warp_status)
 
     # -- callbacks --
 
@@ -218,3 +278,71 @@ class CalibrationPanel:
             f"({self._config.mode} mode). "
             "Replace _do_calibration() with real pipeline."
         )
+
+    def _on_warp_launch(self, sender, app_data, user_data):
+        if self._warp_running:
+            self._stop_warp_circle()
+        else:
+            self._launch_warp_circle()
+
+    def _launch_warp_circle(self) -> None:
+        """Launch the warp circle stimulus as a subprocess."""
+        import os
+
+        logger.info("Launching warp circle test")
+
+        # Save current config to a temp YAML file
+        config_path = None
+        if self._full_config is not None:
+            try:
+                from flocroscope.config.loader import save_config
+
+                tmp = Path(tempfile.mkdtemp()) / "vr_cal_config.yaml"
+                save_config(self._full_config, tmp)
+                config_path = str(tmp)
+            except Exception as exc:
+                logger.warning(
+                    "Could not save temp config: %s", exc,
+                )
+
+        cmd = [
+            sys.executable, "-m",
+            "flocroscope.stimulus.warp_circle",
+        ]
+        if config_path:
+            cmd.append(config_path)
+
+        env = os.environ.copy()
+        src_dir = str(Path(__file__).resolve().parents[3])
+        existing = env.get("PYTHONPATH", "")
+        if src_dir not in existing:
+            env["PYTHONPATH"] = (
+                src_dir + os.pathsep + existing if existing
+                else src_dir
+            )
+
+        try:
+            self._warp_process = subprocess.Popen(
+                cmd, env=env,
+            )
+            self._warp_running = True
+            self._warp_status = (
+                f"Launched warp circle "
+                f"(PID {self._warp_process.pid})"
+            )
+            logger.info(
+                "Warp circle started: PID %d",
+                self._warp_process.pid,
+            )
+        except Exception as exc:
+            self._warp_status = f"Failed to launch: {exc}"
+            logger.error(
+                "Failed to launch warp circle: %s", exc,
+            )
+
+    def _stop_warp_circle(self) -> None:
+        """Stop the running warp circle subprocess."""
+        if self._warp_process is not None:
+            self._warp_process.terminate()
+            self._warp_status = "Warp circle terminated."
+            logger.info("Warp circle terminated")

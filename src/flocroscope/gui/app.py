@@ -66,7 +66,7 @@ class FlocroscopeApp:
             config = _resolve_default_paths()
         self._config = config
         self._comms: CommsHub | None = None
-        self._experiment_mode = ExperimentMode.BEHAVIOR
+        self._experiment_mode = ExperimentMode.BEHAVIOUR
 
     def run(self) -> None:
         """Launch the GUI main loop."""
@@ -85,10 +85,12 @@ class FlocroscopeApp:
             decorated=True,
         )
 
-        # Apply dark theme
-        from flocroscope.gui.theme import create_theme
-        theme_id = create_theme()
-        dpg.bind_theme(theme_id)
+        # Apply dark theme and font
+        from flocroscope.gui.theme import (
+            create_theme, load_font,
+        )
+        dpg.bind_theme(create_theme())
+        load_font()
 
         # Start comms if configured
         if self._config.comms.enabled:
@@ -202,6 +204,7 @@ class FlocroscopeApp:
         self._comms_panel = CommsPanel(self._comms)
         self._calibration_panel = CalibrationPanel(
             self._config.calibration,
+            full_config=self._config,
         )
         self._mapping_panel = MappingPanel(self._config.warp)
         self._flomington_panel = FlomingtonPanel(
