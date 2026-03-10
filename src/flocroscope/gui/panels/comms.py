@@ -25,6 +25,7 @@ class CommsPanel:
 
     def __init__(self, comms: CommsHub | None = None) -> None:
         self._comms = comms
+        self.window_tag = "win_comms"
 
     @property
     def comms(self) -> CommsHub | None:
@@ -35,122 +36,221 @@ class CommsPanel:
     def comms(self, value: CommsHub | None) -> None:
         self._comms = value
 
-    def draw(self) -> None:
-        """Render the comms panel."""
-        import imgui
+    def build(self) -> None:
+        """Create all DearPyGui widgets (called once)."""
+        import dearpygui.dearpygui as dpg
 
-        imgui.begin("Communications")
+        with dpg.window(
+            label="Communications", tag=self.window_tag,
+        ):
+            dpg.add_text(
+                "Comms not active", tag="comms_inactive",
+                color=(153, 153, 153),
+            )
+            dpg.add_text(
+                "Enable in config: comms.enabled = true",
+                tag="comms_hint",
+            )
+
+            with dpg.group(tag="comms_active", show=False):
+                dpg.add_text("Endpoint Status:")
+                dpg.add_separator()
+
+                # Pre-create endpoint status lines
+                _endpoints = [
+                    "fictrac", "scanimage", "led", "presenter",
+                ]
+                for ep in _endpoints:
+                    with dpg.group(horizontal=True):
+                        dpg.add_text(
+                            f"  {ep}",
+                            tag=f"comms_ep_{ep}_name",
+                        )
+                        dpg.add_text(
+                            "disconnected",
+                            tag=f"comms_ep_{ep}_status",
+                        )
+
+                dpg.add_separator()
+
+                # FicTrac data section
+                with dpg.group(
+                    tag="comms_fictrac_section", show=False,
+                ):
+                    dpg.add_text("FicTrac Data:")
+                    dpg.add_text(
+                        "", tag="comms_ft_heading",
+                    )
+                    dpg.add_text(
+                        "", tag="comms_ft_speed",
+                    )
+                    dpg.add_text(
+                        "", tag="comms_ft_pos",
+                    )
+
+                # ScanImage section
+                with dpg.group(
+                    tag="comms_si_section", show=False,
+                ):
+                    dpg.add_text("ScanImage:")
+                    dpg.add_text("", tag="comms_si_ev0")
+                    dpg.add_text("", tag="comms_si_ev1")
+                    dpg.add_text("", tag="comms_si_ev2")
+
+                # LED controls
+                with dpg.group(
+                    tag="comms_led_section", show=False,
+                ):
+                    dpg.add_separator()
+                    dpg.add_text("LED Control:")
+                    with dpg.group(horizontal=True):
+                        dpg.add_button(
+                            label="LED On",
+                            callback=self._on_led_on,
+                        )
+                        dpg.add_button(
+                            label="LED Off",
+                            callback=self._on_led_off,
+                        )
+                        dpg.add_button(
+                            label="Pulse",
+                            callback=self._on_led_pulse,
+                        )
+
+                # Presenter controls
+                with dpg.group(
+                    tag="comms_pres_section", show=False,
+                ):
+                    dpg.add_separator()
+                    dpg.add_text("Fly Presenter:")
+                    with dpg.group(horizontal=True):
+                        dpg.add_button(
+                            label="Present",
+                            callback=self._on_present,
+                        )
+                        dpg.add_button(
+                            label="Retract",
+                            callback=self._on_retract,
+                        )
+
+    def update(self) -> None:
+        """Push live data each frame."""
+        import dearpygui.dearpygui as dpg
 
         if self._comms is None:
-            imgui.text_colored(
-                "Comms not active", 0.6, 0.6, 0.6,
-            )
-            imgui.text("Enable in config: comms.enabled = true")
-            imgui.end()
+            dpg.show_item("comms_inactive")
+            dpg.show_item("comms_hint")
+            dpg.hide_item("comms_active")
             return
 
+        dpg.hide_item("comms_inactive")
+        dpg.hide_item("comms_hint")
+        dpg.show_item("comms_active")
+
         status = self._comms.status
-        imgui.text("Endpoint Status:")
-        imgui.separator()
-
-        for name, connected in status.items():
+        _endpoints = [
+            "fictrac", "scanimage", "led", "presenter",
+        ]
+        for ep in _endpoints:
+            connected = status.get(ep, False)
             if connected:
-                imgui.text_colored(
-                    f"  {name}", 0.2, 0.9, 0.2,
+                dpg.configure_item(
+                    f"comms_ep_{ep}_name",
+                    color=(51, 230, 51),
                 )
-                imgui.same_line()
-                imgui.text("connected")
+                dpg.set_value(
+                    f"comms_ep_{ep}_status", "connected",
+                )
             else:
-                imgui.text_colored(
-                    f"  {name}", 0.9, 0.3, 0.3,
+                dpg.configure_item(
+                    f"comms_ep_{ep}_name",
+                    color=(230, 77, 77),
                 )
-                imgui.same_line()
-                imgui.text("disconnected")
+                dpg.set_value(
+                    f"comms_ep_{ep}_status", "disconnected",
+                )
 
-        imgui.separator()
-
-        # FicTrac live data
+        # FicTrac data
         if status.get("fictrac"):
-            self._draw_fictrac()
+            dpg.show_item("comms_fictrac_section")
+            frame = self._comms.poll_fictrac()
+            if frame is not None:
+                dpg.set_value(
+                    "comms_ft_heading",
+                    f"  Heading: {frame.heading_rad:.2f} rad",
+                )
+                dpg.set_value(
+                    "comms_ft_speed",
+                    f"  Speed: {frame.speed:.4f}",
+                )
+                dpg.set_value(
+                    "comms_ft_pos",
+                    f"  Position: ({frame.x_rad:.3f}, "
+                    f"{frame.y_rad:.3f}) rad",
+                )
+        else:
+            dpg.hide_item("comms_fictrac_section")
 
         # ScanImage events
         if status.get("scanimage"):
-            self._draw_scanimage()
+            dpg.show_item("comms_si_section")
+            events = self._comms.poll_scanimage()
+            if events:
+                for i, ev in enumerate(events[-3:]):
+                    tag = f"comms_si_ev{i}"
+                    dpg.set_value(
+                        tag,
+                        f"  {ev.event_type}: {ev.metadata}",
+                    )
+        else:
+            dpg.hide_item("comms_si_section")
 
-        # LED controls
+        # LED controls visibility
         if status.get("led"):
-            self._draw_led_controls()
+            dpg.show_item("comms_led_section")
+        else:
+            dpg.hide_item("comms_led_section")
 
-        # Presenter controls
+        # Presenter controls visibility
         if status.get("presenter"):
-            self._draw_presenter_controls()
+            dpg.show_item("comms_pres_section")
+        else:
+            dpg.hide_item("comms_pres_section")
 
-        imgui.end()
+    # -- callbacks --
 
-    def _draw_fictrac(self) -> None:
-        """Draw FicTrac live data section."""
-        import imgui
-
-        imgui.text("FicTrac Data:")
-        frame = self._comms.poll_fictrac()
-        if frame is not None:
-            imgui.text(
-                f"  Heading: {frame.heading_rad:.2f} rad",
-            )
-            imgui.text(f"  Speed: {frame.speed:.4f}")
-            imgui.text(
-                f"  Position: ({frame.x_rad:.3f}, "
-                f"{frame.y_rad:.3f}) rad",
-            )
-
-    def _draw_scanimage(self) -> None:
-        """Draw ScanImage events section."""
-        import imgui
-
-        imgui.text("ScanImage:")
-        events = self._comms.poll_scanimage()
-        if events:
-            for ev in events[-3:]:
-                imgui.text(
-                    f"  {ev.event_type}: {ev.metadata}",
-                )
-
-    def _draw_led_controls(self) -> None:
-        """Draw LED control buttons."""
-        import imgui
+    def _on_led_on(self, sender, app_data, user_data):
         from flocroscope.comms.base import LedCommand
-
-        imgui.separator()
-        imgui.text("LED Control:")
-        if imgui.button("LED On"):
+        if self._comms:
             self._comms.send_led(
                 LedCommand(command="on", intensity=1.0),
             )
-        imgui.same_line()
-        if imgui.button("LED Off"):
+
+    def _on_led_off(self, sender, app_data, user_data):
+        from flocroscope.comms.base import LedCommand
+        if self._comms:
             self._comms.send_led(
                 LedCommand(command="off", intensity=0.0),
             )
-        imgui.same_line()
-        if imgui.button("Pulse"):
+
+    def _on_led_pulse(self, sender, app_data, user_data):
+        from flocroscope.comms.base import LedCommand
+        if self._comms:
             self._comms.send_led(LedCommand(
                 command="pulse", intensity=1.0,
                 duration_ms=50.0,
             ))
 
-    def _draw_presenter_controls(self) -> None:
-        """Draw presenter control buttons."""
-        import imgui
+    def _on_present(self, sender, app_data, user_data):
         from flocroscope.comms.base import PresenterCommand
-
-        imgui.separator()
-        imgui.text("Fly Presenter:")
-        if imgui.button("Present"):
+        if self._comms:
             self._comms.send_presenter(
                 PresenterCommand(command="present"),
             )
-        imgui.same_line()
-        if imgui.button("Retract"):
+
+    def _on_retract(self, sender, app_data, user_data):
+        from flocroscope.comms.base import PresenterCommand
+        if self._comms:
             self._comms.send_presenter(
                 PresenterCommand(command="retract"),
             )

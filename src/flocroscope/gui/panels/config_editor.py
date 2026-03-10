@@ -26,87 +26,138 @@ class ConfigEditorPanel:
         self._config = config
         self._config_path = ""
         self._status_msg = ""
+        self.window_tag = "win_config"
 
-    def draw(self) -> None:
-        """Render the config editor panel."""
-        import imgui
+    def build(self) -> None:
+        """Create all DearPyGui widgets (called once)."""
+        import dearpygui.dearpygui as dpg
 
-        imgui.begin("Configuration")
+        with dpg.window(
+            label="Configuration", tag=self.window_tag,
+        ):
+            dpg.add_input_text(
+                label="Config YAML",
+                tag="cfg_path",
+                callback=self._on_path_change,
+            )
 
-        # File path input
-        changed, self._config_path = imgui.input_text(
-            "Config YAML", self._config_path, 256,
-        )
+            with dpg.group(horizontal=True):
+                dpg.add_button(
+                    label="Load",
+                    callback=self._on_load,
+                )
+                dpg.add_button(
+                    label="Save",
+                    callback=self._on_save,
+                )
+                dpg.add_button(
+                    label="Reset Defaults",
+                    callback=self._on_reset,
+                )
 
-        if imgui.button("Load"):
-            self._load_config()
-        imgui.same_line()
-        if imgui.button("Save"):
-            self._save_config()
-        imgui.same_line()
-        if imgui.button("Reset Defaults"):
-            self._reset_defaults()
+            dpg.add_text("", tag="cfg_status")
+            dpg.add_separator()
 
-        if self._status_msg:
-            imgui.text(self._status_msg)
+            dpg.add_text("Current Configuration:")
+            dpg.add_text("", tag="cfg_arena")
+            dpg.add_text("", tag="cfg_camera")
+            dpg.add_text("", tag="cfg_fly")
+            dpg.add_text("", tag="cfg_movement")
+            dpg.add_text("", tag="cfg_comms")
+            dpg.add_text("", tag="cfg_display")
 
-        imgui.separator()
+    def update(self) -> None:
+        """Push live config summary each frame."""
+        import dearpygui.dearpygui as dpg
 
-        # Display current config summary
         cfg = self._config
-        imgui.text("Current Configuration:")
-        imgui.bullet_text(
-            f"Arena: {cfg.arena.radius_mm:.1f} mm radius",
+        dpg.set_value("cfg_status", self._status_msg)
+        dpg.set_value(
+            "cfg_arena",
+            f"  Arena: {cfg.arena.radius_mm:.1f} mm radius",
         )
-        imgui.bullet_text(
-            f"Camera: {cfg.camera.projection} "
+        dpg.set_value(
+            "cfg_camera",
+            f"  Camera: {cfg.camera.projection} "
             f"FOV={cfg.camera.fov_x_deg:.0f}deg",
         )
-        imgui.bullet_text(
-            f"Fly: {cfg.fly_model.phys_length_mm:.1f} mm",
+        dpg.set_value(
+            "cfg_fly",
+            f"  Fly: {cfg.fly_model.phys_length_mm:.1f} mm",
         )
-        imgui.bullet_text(
-            f"Movement: {'autonomous' if cfg.autonomous.enabled else 'keyboard'} "
+        mode = (
+            "autonomous" if cfg.autonomous.enabled
+            else "keyboard"
+        )
+        dpg.set_value(
+            "cfg_movement",
+            f"  Movement: {mode} "
             f"{cfg.movement.speed_mm_s:.0f} mm/s",
         )
-        imgui.bullet_text(
-            f"Comms: {'enabled' if cfg.comms.enabled else 'disabled'}",
+        dpg.set_value(
+            "cfg_comms",
+            f"  Comms: "
+            f"{'enabled' if cfg.comms.enabled else 'disabled'}",
         )
-        imgui.bullet_text(
-            f"Display: {cfg.display.target_fps} FPS "
-            f"{'borderless' if cfg.display.borderless else 'windowed'}",
+        wm = (
+            "borderless" if cfg.display.borderless
+            else "windowed"
+        )
+        dpg.set_value(
+            "cfg_display",
+            f"  Display: {cfg.display.target_fps} FPS {wm}",
         )
 
-        imgui.end()
+    # -- callbacks --
+
+    def _on_path_change(self, sender, app_data, user_data):
+        self._config_path = app_data
+
+    def _on_load(self, sender, app_data, user_data):
+        self._load_config()
+
+    def _on_save(self, sender, app_data, user_data):
+        self._save_config()
+
+    def _on_reset(self, sender, app_data, user_data):
+        self._reset_defaults()
 
     def _load_config(self) -> None:
         """Load config from the specified YAML file."""
-        if not self._config_path:
+        import dearpygui.dearpygui as dpg
+
+        path = dpg.get_value("cfg_path")
+        if not path:
             self._status_msg = "No path specified"
             return
         try:
             from flocroscope.config.loader import load_config
-            loaded = load_config(self._config_path)
-            # Copy all fields from loaded config
+            loaded = load_config(path)
             import dataclasses
             for f in dataclasses.fields(loaded):
-                setattr(self._config, f.name, getattr(loaded, f.name))
-            self._status_msg = f"Loaded: {self._config_path}"
-            logger.info("Config loaded from %s", self._config_path)
+                setattr(
+                    self._config, f.name,
+                    getattr(loaded, f.name),
+                )
+            self._status_msg = f"Loaded: {path}"
+            logger.info("Config loaded from %s", path)
         except Exception as exc:
             self._status_msg = f"Error: {exc}"
             logger.warning("Config load failed: %s", exc)
 
     def _save_config(self) -> None:
         """Save current config to the specified YAML file."""
-        if not self._config_path:
+        import dearpygui.dearpygui as dpg
+
+        path = dpg.get_value("cfg_path")
+        if not path:
             self._status_msg = "No path specified"
             return
         try:
             from flocroscope.config.loader import save_config
-            save_config(self._config, self._config_path)
-            self._status_msg = f"Saved: {self._config_path}"
-            logger.info("Config saved to %s", self._config_path)
+            save_config(self._config, path)
+            self._status_msg = f"Saved: {path}"
+            logger.info("Config saved to %s", path)
         except Exception as exc:
             self._status_msg = f"Error: {exc}"
             logger.warning("Config save failed: %s", exc)
@@ -117,6 +168,9 @@ class ConfigEditorPanel:
         import dataclasses
         defaults = FlocroscopeConfig()
         for f in dataclasses.fields(defaults):
-            setattr(self._config, f.name, getattr(defaults, f.name))
+            setattr(
+                self._config, f.name,
+                getattr(defaults, f.name),
+            )
         self._status_msg = "Reset to defaults"
         logger.info("Config reset to defaults")

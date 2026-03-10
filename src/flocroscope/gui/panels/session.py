@@ -43,204 +43,327 @@ class SessionPanel:
         self._notes = ""
         self._status_msg = ""
         self._flomington_lookup_done = False
+        self.window_tag = "win_session"
 
     @property
     def flomington_client(self) -> FlomingtonClient | None:
         """The Flomington client, if configured."""
         return self._flomington
 
-    def draw(self) -> None:
-        """Render the session panel."""
-        import imgui
+    def build(self) -> None:
+        """Create all DearPyGui widgets (called once)."""
+        import dearpygui.dearpygui as dpg
 
-        imgui.begin("Session")
+        with dpg.window(
+            label="Session", tag=self.window_tag,
+        ):
+            # --- Setup group (visible when no session) ---
+            with dpg.group(tag="sess_setup_group"):
+                dpg.add_text("New Session")
+                dpg.add_separator()
+                dpg.add_input_text(
+                    label="Experimenter",
+                    tag="sess_experimenter",
+                    callback=self._on_experimenter,
+                )
+                dpg.add_input_text(
+                    label="Fly Genotype",
+                    tag="sess_genotype",
+                )
+                dpg.add_input_text(
+                    label="Fly/Cross ID",
+                    tag="sess_fly_id",
+                    callback=self._on_fly_id_change,
+                )
+                dpg.add_input_text(
+                    label="Notes",
+                    tag="sess_notes",
+                    multiline=True,
+                    height=200,
+                )
 
-        if self._session is None or not self._session.is_running:
-            self._draw_setup()
+                # Flomington section
+                with dpg.group(tag="sess_flom_group"):
+                    dpg.add_spacer(height=4)
+                    with dpg.group(horizontal=True):
+                        dpg.add_text("Flomington:")
+                        dpg.add_text(
+                            "", tag="sess_flom_status",
+                        )
+                    dpg.add_button(
+                        label="Lookup from Flomington",
+                        tag="sess_flom_lookup_btn",
+                        callback=self._on_flom_lookup,
+                    )
+                    dpg.add_text(
+                        "", tag="sess_flom_result",
+                        color=(128, 204, 128),
+                    )
+
+                dpg.add_separator()
+                with dpg.group(horizontal=True):
+                    dpg.add_button(
+                        label="Start Session",
+                        tag="sess_start_btn",
+                        callback=self._on_start,
+                    )
+                    dpg.add_text(
+                        "", tag="sess_last_info",
+                    )
+
+            # --- Active group (visible during session) ---
+            with dpg.group(
+                tag="sess_active_group", show=False,
+            ):
+                dpg.add_text(
+                    "", tag="sess_id_text",
+                )
+                dpg.add_text(
+                    "", tag="sess_summary_text",
+                )
+                dpg.add_text(
+                    "", tag="sess_trial_status",
+                    color=(51, 230, 51),
+                )
+                dpg.add_separator()
+
+                dpg.add_button(
+                    label="Begin Trial",
+                    tag="sess_begin_trial_btn",
+                    callback=self._on_begin_trial,
+                )
+                dpg.add_button(
+                    label="End Trial",
+                    tag="sess_end_trial_btn",
+                    callback=self._on_end_trial,
+                    show=False,
+                )
+                dpg.add_separator()
+
+                with dpg.group(horizontal=True):
+                    dpg.add_button(
+                        label="Save Session",
+                        callback=self._on_save,
+                    )
+                    dpg.add_button(
+                        label="Stop Session",
+                        callback=self._on_stop,
+                    )
+
+            dpg.add_separator()
+            dpg.add_text("", tag="sess_status_msg")
+
+    def update(self) -> None:
+        """Push live data each frame."""
+        import dearpygui.dearpygui as dpg
+
+        is_active = (
+            self._session is not None
+            and self._session.is_running
+        )
+
+        if is_active:
+            dpg.hide_item("sess_setup_group")
+            dpg.show_item("sess_active_group")
+            self._update_active()
         else:
-            self._draw_active()
+            dpg.show_item("sess_setup_group")
+            dpg.hide_item("sess_active_group")
+            self._update_setup()
 
-        if self._status_msg:
-            imgui.separator()
-            imgui.text(self._status_msg)
+        # Flomington visibility
+        if self._flomington is None:
+            dpg.hide_item("sess_flom_group")
+        else:
+            dpg.show_item("sess_flom_group")
+            connected = self._flomington.connected
+            if connected:
+                dpg.set_value(
+                    "sess_flom_status", "Connected",
+                )
+                dpg.configure_item(
+                    "sess_flom_status",
+                    color=(51, 230, 51),
+                )
+            else:
+                dpg.set_value(
+                    "sess_flom_status", "Disconnected",
+                )
+                dpg.configure_item(
+                    "sess_flom_status",
+                    color=(230, 77, 77),
+                )
 
-        imgui.end()
+            # Show lookup button only when ID present
+            fly_id = dpg.get_value("sess_fly_id")
+            if (
+                fly_id
+                and fly_id.strip()
+                and not self._flomington_lookup_done
+            ):
+                dpg.show_item("sess_flom_lookup_btn")
+            else:
+                dpg.hide_item("sess_flom_lookup_btn")
 
-    def _draw_setup(self) -> None:
-        """Draw session setup form."""
-        import imgui
+            if self._flomington_lookup_done:
+                dpg.set_value(
+                    "sess_flom_result",
+                    "Genotype populated from Flomington",
+                )
+            else:
+                dpg.set_value("sess_flom_result", "")
 
-        imgui.text("New Session")
-        imgui.separator()
+        dpg.set_value("sess_status_msg", self._status_msg)
 
-        _, self._experimenter = imgui.input_text(
-            "Experimenter", self._experimenter, 64,
-        )
-        _, self._fly_genotype = imgui.input_text(
-            "Fly Genotype", self._fly_genotype, 256,
-        )
-        changed, self._fly_id = imgui.input_text(
-            "Fly/Cross ID", self._fly_id, 32,
-        )
-        if changed:
-            # Reset the lookup flag when the ID changes
-            self._flomington_lookup_done = False
-
-        _, self._notes = imgui.input_text_multiline(
-            "Notes", self._notes, 512, 200, 60,
-        )
-
-        # --- Flomington integration ---
-        self._draw_flomington_section()
-
-        imgui.separator()
-        if imgui.button("Start Session"):
-            self._start_session()
+    def _update_setup(self) -> None:
+        """Update setup mode display."""
+        import dearpygui.dearpygui as dpg
 
         if self._session is not None:
-            imgui.same_line()
-            imgui.text(
-                f"Last session: {self._session.trial_count} trials",
+            dpg.set_value(
+                "sess_last_info",
+                f"Last session: {self._session.trial_count} "
+                "trials",
             )
 
-    def _draw_active(self) -> None:
-        """Draw active session controls."""
-        import imgui
+    def _update_active(self) -> None:
+        """Update active session display."""
+        import dearpygui.dearpygui as dpg
 
         session = self._session
-        assert session is not None
+        if session is None:
+            return
 
         summary = session.summary()
-
-        imgui.text(f"Session: {summary['session_id']}")
-        imgui.text(
+        dpg.set_value(
+            "sess_id_text",
+            f"Session: {summary['session_id']}",
+        )
+        dpg.set_value(
+            "sess_summary_text",
             f"Trials: {summary['trial_count']}  "
             f"Duration: {summary['total_duration_s']:.1f}s",
         )
 
         if summary["current_trial"] is not None:
-            imgui.text_colored(
+            dpg.set_value(
+                "sess_trial_status",
                 f"Trial {summary['current_trial']} active",
-                0.2, 0.9, 0.2,
             )
+            dpg.configure_item(
+                "sess_trial_status", color=(51, 230, 51),
+            )
+            dpg.hide_item("sess_begin_trial_btn")
+            dpg.show_item("sess_end_trial_btn")
         else:
-            imgui.text("No trial active")
+            dpg.set_value(
+                "sess_trial_status", "No trial active",
+            )
+            dpg.configure_item(
+                "sess_trial_status", color=(200, 200, 200),
+            )
+            dpg.show_item("sess_begin_trial_btn")
+            dpg.hide_item("sess_end_trial_btn")
 
-        imgui.separator()
+    # -- callbacks --
 
-        # Trial controls
-        if session.current_trial is None:
-            if imgui.button("Begin Trial"):
-                session.begin_trial(metadata={
-                    "genotype": self._fly_genotype,
-                    "fly_id": self._fly_id,
-                })
-                self._status_msg = (
-                    f"Trial {session.current_trial.trial_number} "
-                    f"started"
-                )
-        else:
-            if imgui.button("End Trial"):
-                trial = session.end_trial()
-                if trial:
-                    self._status_msg = (
-                        f"Trial {trial.trial_number} ended "
-                        f"({trial.duration_s:.1f}s)"
-                    )
+    def _on_experimenter(self, sender, app_data, user_data):
+        self._experimenter = app_data
 
-        imgui.separator()
+    def _on_fly_id_change(self, sender, app_data, user_data):
+        self._fly_id = app_data
+        self._flomington_lookup_done = False
 
-        # Session controls
-        if imgui.button("Save Session"):
-            path = session.save()
-            self._status_msg = f"Saved to {path}"
+    def _on_flom_lookup(self, sender, app_data, user_data):
+        self._lookup_from_flomington()
 
-        imgui.same_line()
-        if imgui.button("Stop Session"):
-            session.stop()
-            path = session.save()
+    def _on_start(self, sender, app_data, user_data):
+        self._start_session()
+
+    def _on_begin_trial(self, sender, app_data, user_data):
+        import dearpygui.dearpygui as dpg
+
+        if self._session is None:
+            return
+        genotype = dpg.get_value("sess_genotype")
+        fly_id = dpg.get_value("sess_fly_id")
+        self._session.begin_trial(metadata={
+            "genotype": genotype,
+            "fly_id": fly_id,
+        })
+        self._status_msg = (
+            f"Trial {self._session.current_trial.trial_number}"
+            " started"
+        )
+
+    def _on_end_trial(self, sender, app_data, user_data):
+        if self._session is None:
+            return
+        trial = self._session.end_trial()
+        if trial:
             self._status_msg = (
-                f"Session stopped, saved to {path}"
+                f"Trial {trial.trial_number} ended "
+                f"({trial.duration_s:.1f}s)"
             )
 
-    def _draw_flomington_section(self) -> None:
-        """Draw the Flomington integration section in setup form.
+    def _on_save(self, sender, app_data, user_data):
+        if self._session is None:
+            return
+        path = self._session.save()
+        self._status_msg = f"Saved to {path}"
 
-        Shows connection status and a lookup button.  When
-        Flomington is not configured (``None``), this section is
-        hidden entirely so the panel works as before.
-        """
-        import imgui
+    def _on_stop(self, sender, app_data, user_data):
+        if self._session is None:
+            return
+        self._session.stop()
+        path = self._session.save()
+        self._status_msg = (
+            f"Session stopped, saved to {path}"
+        )
+
+    def _lookup_from_flomington(self) -> None:
+        """Look up fly/cross info from Flomington."""
+        import dearpygui.dearpygui as dpg
 
         if self._flomington is None:
             return
 
-        imgui.spacing()
-        imgui.text("Flomington:")
-
-        connected = self._flomington.connected
-        if connected:
-            imgui.same_line()
-            imgui.text_colored("Connected", 0.2, 0.9, 0.2)
-        else:
-            imgui.same_line()
-            imgui.text_colored("Disconnected", 0.9, 0.3, 0.3)
-
-        # Auto-lookup button
-        if self._fly_id.strip() and not self._flomington_lookup_done:
-            if imgui.button("Lookup from Flomington"):
-                self._lookup_from_flomington()
-
-        if self._flomington_lookup_done:
-            imgui.text_colored(
-                "Genotype populated from Flomington",
-                0.5, 0.8, 0.5,
-            )
-
-    def _lookup_from_flomington(self) -> None:
-        """Look up fly/cross info from Flomington and populate fields.
-
-        Tries a stock lookup first, then a cross lookup.  If found,
-        the genotype field is auto-populated.
-        """
-        if self._flomington is None or not self._fly_id.strip():
+        fly_id = dpg.get_value("sess_fly_id")
+        if not fly_id or not fly_id.strip():
             return
+        fly_id = fly_id.strip()
 
-        fly_id = self._fly_id.strip()
-
-        # Try stock lookup first
         stock = self._flomington.get_stock(fly_id)
         if stock is not None and stock.genotype:
-            self._fly_genotype = stock.genotype
+            dpg.set_value("sess_genotype", stock.genotype)
             self._flomington_lookup_done = True
             self._status_msg = (
                 f"Populated genotype from stock: {stock.name}"
             )
             logger.info(
-                "Flomington stock lookup for session: %s -> %s",
+                "Flomington stock lookup: %s -> %s",
                 fly_id, stock.genotype,
             )
             return
 
-        # Try cross lookup
         cross = self._flomington.get_cross(fly_id)
         if cross is not None:
-            # Build genotype from parent genotypes
             parts = []
             if cross.virgin_genotype:
                 parts.append(cross.virgin_genotype)
             if cross.male_genotype:
                 parts.append(cross.male_genotype)
             if parts:
-                self._fly_genotype = " x ".join(parts)
+                genotype = " x ".join(parts)
+                dpg.set_value("sess_genotype", genotype)
                 self._flomington_lookup_done = True
                 self._status_msg = (
                     f"Populated genotype from cross: "
                     f"{cross.cross_id} ({cross.status})"
                 )
                 logger.info(
-                    "Flomington cross lookup for session: %s -> %s",
-                    fly_id, self._fly_genotype,
+                    "Flomington cross lookup: %s -> %s",
+                    fly_id, genotype,
                 )
                 return
 
@@ -250,17 +373,23 @@ class SessionPanel:
 
     def _start_session(self) -> None:
         """Create and start a new session."""
+        import dearpygui.dearpygui as dpg
         from flocroscope.session.session import Session
+
+        experimenter = dpg.get_value("sess_experimenter")
+        genotype = dpg.get_value("sess_genotype")
+        fly_id = dpg.get_value("sess_fly_id")
+        notes = dpg.get_value("sess_notes")
 
         self._session = Session(
             config=self._config,
-            experimenter=self._experimenter,
+            experimenter=experimenter,
             stimulus_type="gui",
         )
-        self._session.metadata.fly_genotype = self._fly_genotype
-        if self._fly_id:
-            self._session.metadata.fly_stock_id = self._fly_id
-        self._session.metadata.notes = self._notes
+        self._session.metadata.fly_genotype = genotype
+        if fly_id:
+            self._session.metadata.fly_stock_id = fly_id
+        self._session.metadata.notes = notes
         self._session.start()
         self._status_msg = (
             f"Session {self._session.session_id} started"

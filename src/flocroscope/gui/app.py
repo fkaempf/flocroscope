@@ -1,11 +1,11 @@
-"""Main Dear ImGui application window.
+"""Main DearPyGui application window.
 
 Provides a unified GUI that integrates stimulus control, session
 management, configuration editing, calibration, mapping, and
 communications into a single application with a menu bar and
 dockable panels.
 
-Requires ``imgui[pygame]>=2.0``.
+Requires ``dearpygui>=2.0``.
 """
 
 from __future__ import annotations
@@ -23,9 +23,9 @@ logger = logging.getLogger(__name__)
 class FlocroscopeApp:
     """Main GUI application.
 
-    Manages the pygame/OpenGL window, Dear ImGui context, and
-    panel layout.  All panels degrade gracefully when their
-    backing subsystem (comms, session, etc.) is not configured.
+    Manages the DearPyGui viewport, docking layout, and panel
+    lifecycle.  All panels degrade gracefully when their backing
+    subsystem (comms, session, etc.) is not configured.
 
     Args:
         config: Optional configuration.  If provided, enables
@@ -64,32 +64,19 @@ class FlocroscopeApp:
     def run(self) -> None:
         """Launch the GUI main loop."""
         try:
-            import imgui
-            from imgui.integrations.pygame import PygameRenderer
+            import dearpygui.dearpygui as dpg
         except ImportError:
             print(
-                "Dear ImGui not installed. Install with:\n"
-                "  pip install 'imgui[pygame]>=2.0'"
+                "DearPyGui not installed. Install with:\n"
+                "  pip install 'dearpygui>=2.0'"
             )
             return
 
-        import pygame
-        from OpenGL import GL
-
-        pygame.init()
-        size = (1280, 720)
-        screen = pygame.display.set_mode(
-            size,
-            pygame.DOUBLEBUF | pygame.OPENGL | pygame.RESIZABLE,
+        dpg.create_context()
+        dpg.configure_app(docking=True, docking_space=True)
+        dpg.create_viewport(
+            title="Flocroscope", width=1280, height=720,
         )
-        pygame.display.set_caption("Virtual Reality")
-
-        imgui.create_context()
-        io = imgui.get_io()
-        io.display_size = float(size[0]), float(size[1])
-        renderer = PygameRenderer()
-        self._running = True
-        clock = pygame.time.Clock()
 
         # Start comms if configured
         if self._config.comms.enabled:
@@ -102,7 +89,25 @@ class FlocroscopeApp:
                 logger.warning("Failed to start comms: %s", exc)
                 self._comms = None
 
-        # Create panels
+        # Create Flomington client if configured
+        flomington_client = None
+        try:
+            from flocroscope.comms.flomington import (
+                FlomingtonClient,
+                FlomingtonConfig,
+            )
+            flom_cfg = getattr(
+                self._config, "flomington", FlomingtonConfig(),
+            )
+            if flom_cfg.enabled:
+                flomington_client = FlomingtonClient(flom_cfg)
+                flomington_client.connect()
+        except Exception as exc:
+            logger.warning(
+                "Failed to create Flomington client: %s", exc,
+            )
+
+        # Create panels (deferred imports)
         from flocroscope.gui.panels.stimulus import (
             StimulusPanel,
         )
@@ -133,24 +138,6 @@ class FlocroscopeApp:
         from flocroscope.gui.panels.tracking import (
             TrackingPanel,
         )
-
-        # Create Flomington client if configured
-        flomington_client = None
-        try:
-            from flocroscope.comms.flomington import (
-                FlomingtonClient,
-                FlomingtonConfig,
-            )
-            flom_cfg = getattr(
-                self._config, "flomington", FlomingtonConfig(),
-            )
-            if flom_cfg.enabled:
-                flomington_client = FlomingtonClient(flom_cfg)
-                flomington_client.connect()
-        except Exception as exc:
-            logger.warning(
-                "Failed to create Flomington client: %s", exc,
-            )
 
         self._stimulus_panel = StimulusPanel(self._config)
         self._session_panel = SessionPanel(
@@ -185,93 +172,139 @@ class FlocroscopeApp:
             arena_radius_mm=self._config.arena.radius_mm,
         )
 
+        # Build all panel windows
+        self._panels = [
+            ("_show_stimulus", self._stimulus_panel),
+            ("_show_session", self._session_panel),
+            ("_show_config", self._config_panel),
+            ("_show_comms", self._comms_panel),
+            ("_show_calibration", self._calibration_panel),
+            ("_show_mapping", self._mapping_panel),
+            ("_show_flomington", self._flomington_panel),
+            ("_show_fictrac", self._fictrac_panel),
+            ("_show_scanimage", self._scanimage_panel),
+            ("_show_optogenetics", self._optogenetics_panel),
+            ("_show_behaviour", self._behaviour_panel),
+            ("_show_tracking", self._tracking_panel),
+        ]
+
+        # Build menu bar
+        self._build_menu_bar(dpg)
+
+        # Build all panel widgets
+        for _, panel in self._panels:
+            panel.build()
+
         logger.info("GUI started")
 
+        dpg.setup_dearpygui()
+        dpg.show_viewport()
+        self._running = True
+
         try:
-            while self._running:
-                for event in pygame.event.get():
-                    if event.type == pygame.QUIT:
-                        self._running = False
-                    renderer.process_event(event)
+            while dpg.is_dearpygui_running() and self._running:
+                # Update panel visibility
+                for flag_name, panel in self._panels:
+                    visible = getattr(self, flag_name)
+                    if visible:
+                        dpg.show_item(panel.window_tag)
+                    else:
+                        dpg.hide_item(panel.window_tag)
 
-                renderer.process_inputs()
-                imgui.new_frame()
+                # Update panels with live data
+                for flag_name, panel in self._panels:
+                    if getattr(self, flag_name):
+                        panel.update()
 
-                self._draw_menu_bar()
-                self._draw_panels()
-
-                GL.glClearColor(0.1, 0.1, 0.1, 1.0)
-                GL.glClear(GL.GL_COLOR_BUFFER_BIT)
-
-                imgui.render()
-                renderer.render(imgui.get_draw_data())
-                pygame.display.flip()
-                clock.tick(60)
+                dpg.render_dearpygui_frame()
         finally:
             if self._comms is not None:
                 self._comms.stop_all()
-            renderer.shutdown()
-            pygame.quit()
+            dpg.destroy_context()
             logger.info("GUI closed")
 
-    def _draw_menu_bar(self) -> None:
-        """Draw the main menu bar."""
-        import imgui
+    def _build_menu_bar(self, dpg: object) -> None:
+        """Build the viewport menu bar."""
+        import dearpygui.dearpygui as dpg
 
-        if imgui.begin_main_menu_bar():
-            if imgui.begin_menu("File"):
-                clicked, _ = imgui.menu_item("Quit", "Ctrl+Q")
-                if clicked:
-                    self._running = False
-                imgui.end_menu()
-            if imgui.begin_menu("Panels"):
-                clicked, _ = imgui.menu_item("Reorganize")
-                if clicked:
-                    self._needs_reorganize = True
-                imgui.separator()
-                _, self._show_stimulus = imgui.menu_item(
-                    "Stimulus", None, self._show_stimulus,
+        with dpg.viewport_menu_bar():
+            with dpg.menu(label="File"):
+                dpg.add_menu_item(
+                    label="Quit",
+                    shortcut="Ctrl+Q",
+                    callback=lambda: setattr(
+                        self, "_running", False,
+                    ),
                 )
-                _, self._show_session = imgui.menu_item(
-                    "Session", None, self._show_session,
+            with dpg.menu(label="Panels"):
+                dpg.add_menu_item(
+                    label="Reorganize",
+                    callback=self._on_reorganize,
                 )
-                _, self._show_config = imgui.menu_item(
-                    "Configuration", None, self._show_config,
+                dpg.add_separator()
+                self._add_panel_toggle(
+                    dpg, "Stimulus", "_show_stimulus",
                 )
-                _, self._show_comms = imgui.menu_item(
-                    "Communications", None, self._show_comms,
+                self._add_panel_toggle(
+                    dpg, "Session", "_show_session",
                 )
-                _, self._show_calibration = imgui.menu_item(
-                    "Calibration", None, self._show_calibration,
+                self._add_panel_toggle(
+                    dpg, "Configuration", "_show_config",
                 )
-                _, self._show_mapping = imgui.menu_item(
-                    "Mapping", None, self._show_mapping,
+                self._add_panel_toggle(
+                    dpg, "Communications", "_show_comms",
                 )
-                _, self._show_flomington = imgui.menu_item(
-                    "Flomington", None, self._show_flomington,
+                self._add_panel_toggle(
+                    dpg, "Calibration", "_show_calibration",
                 )
-                imgui.separator()
-                _, self._show_fictrac = imgui.menu_item(
-                    "FicTrac / Treadmill", None,
-                    self._show_fictrac,
+                self._add_panel_toggle(
+                    dpg, "Mapping", "_show_mapping",
                 )
-                _, self._show_scanimage = imgui.menu_item(
-                    "ScanImage / 2-Photon", None,
-                    self._show_scanimage,
+                self._add_panel_toggle(
+                    dpg, "Flomington", "_show_flomington",
                 )
-                _, self._show_optogenetics = imgui.menu_item(
-                    "Optogenetics / LED", None,
-                    self._show_optogenetics,
+                dpg.add_separator()
+                self._add_panel_toggle(
+                    dpg, "FicTrac / Treadmill",
+                    "_show_fictrac",
                 )
-                _, self._show_behaviour = imgui.menu_item(
-                    "Behaviour", None, self._show_behaviour,
+                self._add_panel_toggle(
+                    dpg, "ScanImage / 2-Photon",
+                    "_show_scanimage",
                 )
-                _, self._show_tracking = imgui.menu_item(
-                    "Tracking (Virtual vs Real)", None,
-                    self._show_tracking,
+                self._add_panel_toggle(
+                    dpg, "Optogenetics / LED",
+                    "_show_optogenetics",
                 )
-                imgui.end_menu()
-            imgui.end_main_menu_bar()
+                self._add_panel_toggle(
+                    dpg, "Behaviour", "_show_behaviour",
+                )
+                self._add_panel_toggle(
+                    dpg, "Tracking (Virtual vs Real)",
+                    "_show_tracking",
+                )
+
+    def _add_panel_toggle(
+        self, dpg: object, label: str, flag_name: str,
+    ) -> None:
+        """Add a checkable menu item for a panel toggle."""
+        import dearpygui.dearpygui as dpg
+
+        tag = f"menu_{flag_name}"
+        dpg.add_menu_item(
+            label=label,
+            check=True,
+            default_value=getattr(self, flag_name),
+            tag=tag,
+            callback=lambda s, a, u: setattr(
+                self, u, dpg.get_value(s),
+            ),
+            user_data=flag_name,
+        )
+
+    def _on_reorganize(self) -> None:
+        """Reset docking layout by showing all visible panels."""
+        self._needs_reorganize = True
 
     def _get_visible_panels(self) -> list:
         """Return visible panel instances in display order."""
@@ -339,30 +372,13 @@ class FlocroscopeApp:
             ))
         return positions
 
-    def _draw_panels(self) -> None:
-        """Draw all visible panels in a tiled grid layout."""
-        import imgui
-
-        panels = self._get_visible_panels()
-        dw, dh = imgui.get_io().display_size
-        layout = self._compute_layout(len(panels), dw, dh)
-
-        for panel, (x, y, w, h) in zip(panels, layout):
-            if self._needs_reorganize:
-                imgui.set_next_window_position(x, y, imgui.ALWAYS)
-                imgui.set_next_window_size(w, h, imgui.ALWAYS)
-            # Keep every panel unfolded
-            imgui.set_next_window_collapsed(False, imgui.ALWAYS)
-            panel.draw()
-
-        self._needs_reorganize = False
 
 def _build_parser() -> "argparse.ArgumentParser":
     """Build the argument parser for the GUI CLI."""
     import argparse
 
     parser = argparse.ArgumentParser(
-        description="Launch the Virtual Reality GUI application.",
+        description="Launch the Flocroscope GUI application.",
     )
     parser.add_argument(
         "config",

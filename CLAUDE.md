@@ -4,27 +4,35 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-**virtual.reality** is a modular Python package for rendering virtual fly stimuli in neuroscience experiments and calibrating projector-camera systems. It consolidates the former `virtual.fly` (24 Python scripts) and `screen.calibration` (~15 files) repositories into a single well-structured package.
+**Flocroscope** is a modular Python package for rendering virtual fly stimuli in neuroscience experiments and calibrating projector-camera systems. It consolidates the former `virtual.fly` (24 Python scripts) and `screen.calibration` (~15 files) repositories into a single well-structured package.
 
 ## Architecture
 
-### Package Structure
+### Repository Layout
 
 ```
-src/flocroscope/
-    config/           # Dataclass schemas, YAML loader, platform paths
-    cameras/          # Camera Protocol + Alvium/RotPy drivers + factory
-    calibration/      # Fisheye/pinhole calibration, intrinsics I/O
-    mapping/          # Structured light, warp maps, pipeline, refinement
-    rendering/        # GL utils, shaders, GLB loader, projections
-    math_utils/       # Matrix transforms, arena geometry, lighting
-    stimulus/         # Stimulus ABC + Fly3D/FlySprite/WarpCircle + controllers
-    display/          # Monitor picking, surface conversion, minimap, window
-    pipeline/         # Calibration pipeline orchestrator
-    comms/            # Inter-process communication endpoints + CommsHub
-    session/          # Experiment session lifecycle + trial tracking
-    gui/              # Dear ImGui application + panels
-    legacy/           # Archived original scripts (read-only reference)
+flocroscope/                   # Project root
+    src/flocroscope/           # Python package
+        config/                # Dataclass schemas, YAML loader, paths
+        cameras/               # Camera Protocol + Alvium/RotPy drivers
+        calibration/           # Fisheye/pinhole calibration, intrinsics I/O
+        mapping/               # Structured light, warp maps, pipeline
+        rendering/             # GL utils, shaders, GLB loader, projections
+        math_utils/            # Matrix transforms, arena geometry, lighting
+        stimulus/              # Stimulus ABC + Fly3D/FlySprite/WarpCircle
+        display/               # Monitor picking, surface, minimap, window
+        pipeline/              # Calibration pipeline orchestrator
+        comms/                 # Inter-process comms (FicTrac, ScanImage, LED)
+        session/               # Experiment session lifecycle + trial tracking
+        gui/                   # Dear ImGui application + 12 panels
+        legacy/                # Archived original scripts (read-only)
+    tests/                     # Test suite (~490 tests)
+    configs/                   # Calibration data (warp maps, intrinsics)
+    assets/                    # Binary assets (not in git)
+        models/                # fly.glb, testmodel.glb
+        sprites/               # og_pics/, red_pics/, interp* frame sets
+    calibration.pictures/      # Reference calibration photographs
+    data/sessions/             # Experiment session output
 ```
 
 ### Key Concepts

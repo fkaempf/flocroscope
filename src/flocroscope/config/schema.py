@@ -345,26 +345,33 @@ class FlocroscopeConfig:
     session: SessionConfig = field(default_factory=SessionConfig)
 
 
+def _find_project_root() -> Path:
+    """Locate the project root by walking up from this file.
+
+    Falls back to the grandparent of ``src/flocroscope/config/``.
+    """
+    here = Path(__file__).resolve()
+    # schema.py is at <root>/src/flocroscope/config/schema.py
+    return here.parents[3]
+
+
 def _resolve_default_paths() -> FlocroscopeConfig:
-    """Create a config with platform-aware default paths filled in."""
-    is_mac = sys.platform == "darwin"
+    """Create a config with project-relative default paths filled in.
+
+    Models and sprites live under ``<project>/assets/``.  Warp maps
+    live under ``<project>/configs/camera.projector.mapping/``.
+    """
+    root = _find_project_root()
     config = FlocroscopeConfig()
 
-    if is_mac:
-        base = Path("/Users/fkampf/Documents")
-        cal = base / "screen.calibration" / "configs"
-        config.fly_model.model_path = str(
-            base / "virtual.fly" / "testmodel.glb"
-        )
-        config.fly_model.sprite_folder = str(
-            base / "virtual.fly" / "og_pics"
-        )
-    else:
-        cal = Path("D:/screen.calibration/configs")
-        config.fly_model.model_path = r"D:\virtual.fly\fly.glb"
-        config.fly_model.sprite_folder = r"D:\virtual.fly\og_pics"
+    config.fly_model.model_path = str(
+        root / "assets" / "models" / "fly.glb"
+    )
+    config.fly_model.sprite_folder = str(
+        root / "assets" / "sprites" / "og_pics"
+    )
 
-    mapping = cal / "camera.projector.mapping"
+    mapping = root / "configs" / "camera.projector.mapping"
     config.warp.mapx_path = str(
         mapping / "mapx.experimental.npy"
     )

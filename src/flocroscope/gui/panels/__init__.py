@@ -1,8 +1,8 @@
 """GUI panel implementations.
 
-Each panel is a standalone class with a ``draw()`` method that
-renders its Dear ImGui content.  Panels are composed by the
-main :class:`~flocroscope.gui.app.FlocroscopeApp`.
+Each panel is a standalone class with ``build()`` and ``update()``
+methods for DearPyGui retained-mode rendering.  Panels are composed
+by the main :class:`~flocroscope.gui.app.FlocroscopeApp`.
 """
 
 from flocroscope.gui.panels.behaviour import BehaviourPanel

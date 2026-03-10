@@ -22,10 +22,6 @@ logger = logging.getLogger(__name__)
 class MappingPanel:
     """Panel for projector-camera warp map management.
 
-    Shows the configured warp map file paths, their dimensions
-    when loaded, and provides buttons for loading maps and running
-    the mapping pipeline in a background thread.
-
     Args:
         config: Warp configuration (mutable).
     """
@@ -37,6 +33,7 @@ class MappingPanel:
         self._warp_map: WarpMap | None = None
         self._mapping_thread: threading.Thread | None = None
         self._mapping_running = False
+        self.window_tag = "win_mapping"
 
     @property
     def warp_map(self) -> WarpMap | None:
@@ -48,81 +45,120 @@ class MappingPanel:
         """Whether the mapping pipeline is currently running."""
         return self._mapping_running
 
-    def draw(self) -> None:
-        """Render the mapping panel contents."""
-        import imgui
+    def build(self) -> None:
+        """Create all DearPyGui widgets (called once)."""
+        import dearpygui.dearpygui as dpg
 
-        imgui.begin("Mapping")
+        with dpg.window(
+            label="Mapping", tag=self.window_tag,
+        ):
+            dpg.add_text("Warp Map Paths:")
+            dpg.add_separator()
+            dpg.add_text("", tag="map_mapx")
+            dpg.add_text("", tag="map_mapy")
+            dpg.add_spacer(height=4)
 
-        # --- Warp map paths ---
-        imgui.text("Warp Map Paths:")
-        imgui.separator()
+            dpg.add_text("", tag="map_dims_label")
+            dpg.add_text("", tag="map_dims_size")
+            dpg.add_text("", tag="map_dims_cam")
+            dpg.add_text(
+                "No warp map loaded", tag="map_no_map",
+                color=(153, 153, 153),
+            )
 
-        imgui.bullet_text(
-            f"mapx: {self._config.mapx_path or '(not set)'}",
+            dpg.add_spacer(height=4)
+
+            with dpg.group(horizontal=True):
+                dpg.add_button(
+                    label="Load Warp Map",
+                    callback=self._on_load,
+                )
+                dpg.add_text(
+                    "", tag="map_progress",
+                    color=(230, 179, 51),
+                )
+                dpg.add_button(
+                    label="Run Mapping Pipeline",
+                    tag="map_run_btn",
+                    callback=self._on_run,
+                )
+
+            dpg.add_separator()
+            dpg.add_text("Status:")
+            dpg.add_text("", tag="map_status", wrap=400)
+
+    def update(self) -> None:
+        """Push live data each frame."""
+        import dearpygui.dearpygui as dpg
+
+        dpg.set_value(
+            "map_mapx",
+            f"  mapx: "
+            f"{self._config.mapx_path or '(not set)'}",
         )
-        imgui.bullet_text(
-            f"mapy: {self._config.mapy_path or '(not set)'}",
+        dpg.set_value(
+            "map_mapy",
+            f"  mapy: "
+            f"{self._config.mapy_path or '(not set)'}",
         )
 
-        imgui.spacing()
-
-        # --- Warp map dimensions ---
         if self._map_shape is not None:
-            imgui.text("Loaded Map Dimensions:")
-            imgui.bullet_text(
-                f"Size: {self._map_shape[0]} x {self._map_shape[1]}"
-                " (w x h)",
+            dpg.set_value(
+                "map_dims_label", "Loaded Map Dimensions:",
+            )
+            dpg.set_value(
+                "map_dims_size",
+                f"  Size: {self._map_shape[0]} x "
+                f"{self._map_shape[1]} (w x h)",
             )
             if self._warp_map is not None:
-                imgui.bullet_text(
-                    f"Camera: {self._warp_map.cam_w} x "
+                dpg.set_value(
+                    "map_dims_cam",
+                    f"  Camera: {self._warp_map.cam_w} x "
                     f"{self._warp_map.cam_h} (inferred)",
                 )
+            dpg.hide_item("map_no_map")
+            dpg.show_item("map_dims_label")
+            dpg.show_item("map_dims_size")
+            dpg.show_item("map_dims_cam")
         else:
-            imgui.text_colored(
-                "No warp map loaded", 0.6, 0.6, 0.6,
-            )
-
-        imgui.spacing()
-
-        # --- Action buttons ---
-        if imgui.button("Load Warp Map"):
-            self._load_warp_map()
-
-        imgui.same_line()
+            dpg.show_item("map_no_map")
+            dpg.hide_item("map_dims_label")
+            dpg.hide_item("map_dims_size")
+            dpg.hide_item("map_dims_cam")
 
         if self._mapping_running:
-            imgui.text_colored(
-                "Mapping in progress...", 0.9, 0.7, 0.2,
+            dpg.set_value(
+                "map_progress", "Mapping in progress...",
+            )
+            dpg.configure_item(
+                "map_run_btn", enabled=False,
             )
         else:
-            if imgui.button("Run Mapping Pipeline"):
-                self._run_mapping_pipeline()
+            dpg.set_value("map_progress", "")
+            dpg.configure_item(
+                "map_run_btn", enabled=True,
+            )
 
-        # --- Status area ---
-        imgui.separator()
-        imgui.text("Status:")
+        dpg.set_value("map_status", self._status_msg)
 
-        if self._status_msg:
-            imgui.text_wrapped(self._status_msg)
+    # -- callbacks --
 
-        imgui.end()
+    def _on_load(self, sender, app_data, user_data):
+        self._load_warp_map()
+
+    def _on_run(self, sender, app_data, user_data):
+        self._run_mapping_pipeline()
 
     def _load_warp_map(self) -> None:
-        """Load warp map files using the mapping.warp module.
-
-        Calls :func:`~flocroscope.mapping.warp.load_warp_map`
-        with the configured paths, stores the result, and updates
-        the panel display with the loaded dimensions.  Errors are
-        caught and reported via the status message.
-        """
+        """Load warp map files."""
         mapx = self._config.mapx_path
         mapy = self._config.mapy_path
 
         if not mapx or not mapy:
             self._status_msg = (
-                "Cannot load: mapx and/or mapy path not configured."
+                "Cannot load: mapx and/or mapy path "
+                "not configured."
             )
             return
 
@@ -134,12 +170,14 @@ class MappingPanel:
             self._map_shape = (warp.proj_w, warp.proj_h)
 
             valid_pct = (
-                warp.valid_mask.sum() / warp.valid_mask.size * 100
+                warp.valid_mask.sum()
+                / warp.valid_mask.size * 100
             )
             self._status_msg = (
-                f"Loaded warp map: {warp.proj_w}x{warp.proj_h} "
-                f"(projector), {warp.cam_w}x{warp.cam_h} "
-                f"(camera), {valid_pct:.1f}% valid pixels"
+                f"Loaded warp map: {warp.proj_w}x"
+                f"{warp.proj_h} (projector), "
+                f"{warp.cam_w}x{warp.cam_h} (camera), "
+                f"{valid_pct:.1f}% valid pixels"
             )
             logger.info(
                 "Warp map loaded: proj=%dx%d, cam=%dx%d, "
@@ -150,23 +188,26 @@ class MappingPanel:
             )
         except FileNotFoundError as exc:
             self._status_msg = f"File not found: {exc}"
-            logger.error("Warp map file not found: %s", exc)
+            logger.error(
+                "Warp map file not found: %s", exc,
+            )
         except RuntimeError as exc:
             self._status_msg = f"Invalid warp map: {exc}"
             logger.error("Invalid warp map: %s", exc)
         except Exception as exc:
-            self._status_msg = f"Failed to load warp map: {exc}"
-            logger.exception("Unexpected error loading warp map")
+            self._status_msg = (
+                f"Failed to load warp map: {exc}"
+            )
+            logger.exception(
+                "Unexpected error loading warp map",
+            )
 
     def _run_mapping_pipeline(self) -> None:
-        """Launch the structured-light mapping pipeline in a thread.
-
-        Starts a daemon thread that calls :meth:`_do_mapping` and
-        updates the status message on completion.  If a mapping is
-        already in progress, the request is ignored.
-        """
+        """Launch the mapping pipeline in a thread."""
         if self._mapping_running:
-            self._status_msg = "Mapping pipeline already in progress."
+            self._status_msg = (
+                "Mapping pipeline already in progress."
+            )
             return
 
         self._mapping_running = True
@@ -181,48 +222,30 @@ class MappingPanel:
         self._mapping_thread.start()
 
     def _mapping_worker(self) -> None:
-        """Background thread target for the mapping pipeline.
-
-        Calls :meth:`_do_mapping` and updates the panel state
-        with the result.  Exceptions are caught and reported.
-        """
+        """Background thread target."""
         try:
             result_msg = self._do_mapping()
             self._status_msg = result_msg
-            logger.info("Mapping pipeline completed: %s", result_msg)
+            logger.info(
+                "Mapping pipeline completed: %s", result_msg,
+            )
         except Exception as exc:
-            self._status_msg = f"Mapping pipeline failed: {exc}"
+            self._status_msg = (
+                f"Mapping pipeline failed: {exc}"
+            )
             logger.exception("Mapping pipeline failed")
         finally:
             self._mapping_running = False
 
     def _do_mapping(self) -> str:
-        """Execute the structured-light mapping pipeline.
-
-        This is the method that will be replaced with the real
-        pipeline call once hardware integration is implemented.
-        Currently it simulates progress and returns a placeholder
-        result.
-
-        When the real pipeline is ready, replace the body with::
-
-            from flocroscope.pipeline.calibration_pipeline import (
-                run_calibration_pipeline,
-            )
-            result = run_calibration_pipeline(self._config)
-            return "Mapping complete"
-
-        Returns:
-            A human-readable result summary string.
-        """
-        logger.info("Mapping pipeline started (placeholder)")
-
+        """Execute the mapping pipeline (placeholder)."""
+        logger.info(
+            "Mapping pipeline started (placeholder)",
+        )
         self._status_msg = "Projecting sine patterns..."
         time.sleep(0.01)
-
         self._status_msg = "Decoding phase..."
         time.sleep(0.01)
-
         self._status_msg = "Building warp maps..."
         time.sleep(0.01)
 

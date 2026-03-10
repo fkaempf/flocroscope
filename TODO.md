@@ -1,11 +1,11 @@
-# TODO — virtual.reality
+# TODO — Flocroscope
 
 Things we still want to implement, roughly in priority order.
 
 ## High Priority
 
 ### Flomington Supabase Integration
-- Replace placeholder methods in `src/virtual_reality/comms/flomington.py` with real `supabase-py` SDK calls
+- Replace placeholder methods in `src/flocroscope/comms/flomington.py` with real `supabase-py` SDK calls
 - Query `stocks` and `crosses` tables with field maps (camelCase JS / snake_case Postgres)
 - Real-time subscriptions via `postgres_changes` channel
 - QR code scanning: parse `?s=<8-char-id-prefix>` URLs to look up stocks/crosses
@@ -32,7 +32,7 @@ Things we still want to implement, roughly in priority order.
 ### Ruff + Mypy Clean Pass
 - Run `ruff check src/ tests/ --fix` and resolve remaining warnings
 - Run `ruff format src/ tests/` for consistent style
-- Run `mypy src/virtual_reality/` and fix type errors
+- Run `mypy src/flocroscope/` and fix type errors
 - CI workflows (`.github/workflows/lint.yml`) are ready but haven't been validated
 
 ### Video Recording
@@ -79,4 +79,4 @@ Things we still want to implement, roughly in priority order.
 
 ---
 
-*Last updated: 2026-02-26*
+*Last updated: 2026-03-06*

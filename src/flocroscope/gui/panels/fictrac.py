@@ -46,6 +46,7 @@ class FicTracPanel:
         self._x_mm: float = 0.0
         self._y_mm: float = 0.0
         self._frames_received: int = 0
+        self.window_tag = "win_fictrac"
 
     # -- public helpers for tests --
 
@@ -53,33 +54,77 @@ class FicTracPanel:
     def frames_received(self) -> int:
         return self._frames_received
 
-    # -- drawing --
+    # -- widget creation --
 
-    def draw(self) -> None:
-        """Render the FicTrac panel."""
-        import imgui
+    def build(self) -> None:
+        """Create all DearPyGui widgets (called once)."""
+        import dearpygui.dearpygui as dpg
 
-        imgui.begin("FicTrac / Treadmill")
+        with dpg.window(
+            label="FicTrac / Treadmill",
+            tag=self.window_tag,
+        ):
+            dpg.add_text(
+                "FicTrac not connected",
+                tag="ft_inactive",
+                color=(153, 153, 153),
+            )
+            dpg.add_text(
+                "Configure comms.fictrac_port to enable.",
+                tag="ft_hint",
+            )
+
+            with dpg.group(
+                tag="ft_active", show=False,
+            ):
+                dpg.add_text(
+                    "", tag="ft_conn_status",
+                )
+                dpg.add_separator()
+
+                dpg.add_text("", tag="ft_ball_radius")
+                dpg.add_spacer(height=4)
+                dpg.add_text("", tag="ft_heading")
+                dpg.add_text("", tag="ft_speed")
+                dpg.add_text("", tag="ft_x")
+                dpg.add_text("", tag="ft_y")
+                dpg.add_text("", tag="ft_frames")
+
+                dpg.add_separator()
+                dpg.add_text("Speed history:")
+                dpg.add_text(
+                    "", tag="ft_sparkline",
+                    color=(153, 153, 153),
+                )
+
+    def update(self) -> None:
+        """Push live data each frame."""
+        import dearpygui.dearpygui as dpg
 
         if self._comms is None:
-            imgui.text_colored(
-                "FicTrac not connected", 0.6, 0.6, 0.6,
-            )
-            imgui.text(
-                "Configure comms.fictrac_port to enable.",
-            )
-            imgui.end()
+            dpg.show_item("ft_inactive")
+            dpg.show_item("ft_hint")
+            dpg.hide_item("ft_active")
             return
+
+        dpg.hide_item("ft_inactive")
+        dpg.hide_item("ft_hint")
+        dpg.show_item("ft_active")
 
         status = self._comms.status
         connected = status.get("fictrac", False)
         if connected:
-            imgui.text_colored(
-                "Connected", 0.2, 0.9, 0.2,
+            dpg.set_value("ft_conn_status", "Connected")
+            dpg.configure_item(
+                "ft_conn_status", color=(51, 230, 51),
             )
         else:
-            imgui.text_colored(
-                "Waiting for FicTrac...", 0.9, 0.6, 0.2,
+            dpg.set_value(
+                "ft_conn_status",
+                "Waiting for FicTrac...",
+            )
+            dpg.configure_item(
+                "ft_conn_status", color=(230, 153, 51),
             )
 
         # Poll latest frame
@@ -91,41 +136,52 @@ class FicTracPanel:
                 self._config is not None
                 and self._config.fictrac_ball_radius_mm > 0
             ):
-                ball_r = self._config.fictrac_ball_radius_mm
-            self._heading_deg = math.degrees(frame.heading_rad)
+                ball_r = (
+                    self._config.fictrac_ball_radius_mm
+                )
+            self._heading_deg = math.degrees(
+                frame.heading_rad,
+            )
             self._speed = frame.speed * ball_r
             self._x_mm = frame.x_rad * ball_r
             self._y_mm = frame.y_rad * ball_r
             self._speed_history.append(self._speed)
 
-        imgui.separator()
-
         # Ball config
         if self._config is not None:
-            imgui.text(
+            dpg.set_value(
+                "ft_ball_radius",
                 f"Ball radius: "
-                f"{self._config.fictrac_ball_radius_mm:.1f} mm",
+                f"{self._config.fictrac_ball_radius_mm:.1f}"
+                " mm",
             )
 
         # Live data
-        imgui.spacing()
-        imgui.text(f"Heading:  {self._heading_deg:7.1f} deg")
-        imgui.text(f"Speed:    {self._speed:7.2f} mm/s")
-        imgui.text(f"X:        {self._x_mm:7.2f} mm")
-        imgui.text(f"Y:        {self._y_mm:7.2f} mm")
-        imgui.text(f"Frames:   {self._frames_received}")
+        dpg.set_value(
+            "ft_heading",
+            f"Heading:  {self._heading_deg:7.1f} deg",
+        )
+        dpg.set_value(
+            "ft_speed",
+            f"Speed:    {self._speed:7.2f} mm/s",
+        )
+        dpg.set_value(
+            "ft_x", f"X:        {self._x_mm:7.2f} mm",
+        )
+        dpg.set_value(
+            "ft_y", f"Y:        {self._y_mm:7.2f} mm",
+        )
+        dpg.set_value(
+            "ft_frames",
+            f"Frames:   {self._frames_received}",
+        )
 
         # Speed sparkline placeholder
-        imgui.separator()
-        imgui.text("Speed history:")
         if self._speed_history:
-            imgui.text(
-                "[sparkline placeholder — "
+            dpg.set_value(
+                "ft_sparkline",
+                f"[sparkline placeholder - "
                 f"{len(self._speed_history)} samples]",
             )
         else:
-            imgui.text_colored(
-                "No data yet", 0.6, 0.6, 0.6,
-            )
-
-        imgui.end()
+            dpg.set_value("ft_sparkline", "No data yet")

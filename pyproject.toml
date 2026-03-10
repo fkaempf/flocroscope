@@ -24,7 +24,7 @@ dependencies = [
 display = ["screeninfo>=0.8"]
 alvium = ["harvesters>=1.4"]
 flir = ["rotpy>=0.3"]
-gui = ["imgui[pygame]>=2.0"]
+gui = ["dearpygui>=2.0"]
 comms = ["pyzmq>=25.0"]
 dev = [
     "pytest>=7.0",

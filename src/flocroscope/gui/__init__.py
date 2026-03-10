@@ -1,4 +1,4 @@
-"""Dear ImGui-based graphical user interface."""
+"""DearPyGui-based graphical user interface."""
 
 from flocroscope.gui.app import FlocroscopeApp
 
