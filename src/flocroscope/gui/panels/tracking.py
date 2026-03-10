@@ -1,4 +1,4 @@
-"""Tracking panel — virtual fly vs real fly relationship.
+"""Tracking panel -- virtual fly vs real fly relationship.
 
 Displays a top-down arena view showing the real fly position
 (from FicTrac) alongside the virtual stimulus fly, with heading
@@ -44,7 +44,13 @@ class TrackingPanel:
         self._virtual_y: float = 0.0
         self._virtual_heading_deg: float = 0.0
 
-    # -- public setters for stimulus loop to push state --
+        self.group_tag = "grp_tracking"
+
+    @property
+    def window_tag(self) -> str:
+        return self.group_tag
+
+    # -- public setters for stimulus loop --
 
     def set_virtual_state(
         self, x: float, y: float, heading_deg: float,
@@ -57,7 +63,7 @@ class TrackingPanel:
     def set_real_state(
         self, x: float, y: float, heading_deg: float,
     ) -> None:
-        """Update the real fly state manually or from FicTrac."""
+        """Update the real fly state manually."""
         self._real_x = x
         self._real_y = y
         self._real_heading_deg = heading_deg
@@ -73,18 +79,61 @@ class TrackingPanel:
 
     @property
     def heading_offset_deg(self) -> float:
-        """Signed heading difference (virtual - real), in degrees."""
-        diff = self._virtual_heading_deg - self._real_heading_deg
-        # Normalise to [-180, +180]
+        """Signed heading difference (virtual - real)."""
+        diff = (
+            self._virtual_heading_deg
+            - self._real_heading_deg
+        )
         return (diff + 180.0) % 360.0 - 180.0
 
-    # -- drawing --
+    # -- widget creation --
 
-    def draw(self) -> None:
-        """Render the tracking panel."""
-        import imgui
+    def build(self, parent: int | str = 0) -> None:
+        """Create all DearPyGui widgets (called once)."""
+        import dearpygui.dearpygui as dpg
 
-        imgui.begin("Tracking (Virtual vs Real)")
+        with dpg.group(
+            parent=parent, tag=self.group_tag,
+        ):
+            dpg.add_text("Arena Top-Down View:")
+            dpg.add_separator()
+
+            dpg.add_text(
+                "Real Fly (FicTrac):",
+                tag="trk_real_label",
+                color=(77, 204, 255),
+            )
+            dpg.add_text("", tag="trk_real_pos")
+            dpg.add_text("", tag="trk_real_heading")
+
+            dpg.add_spacer(height=4)
+
+            dpg.add_text(
+                "Virtual Fly (Stimulus):",
+                tag="trk_virt_label",
+                color=(51, 230, 51),
+            )
+            dpg.add_text("", tag="trk_virt_pos")
+            dpg.add_text("", tag="trk_virt_heading")
+
+            dpg.add_separator()
+
+            dpg.add_text("Relationship:")
+            dpg.add_text("", tag="trk_distance")
+            dpg.add_text("", tag="trk_heading_offset")
+
+            dpg.add_separator()
+            dpg.add_text("", tag="trk_indicator")
+
+            dpg.add_spacer(height=4)
+            dpg.add_text(
+                "[Top-down arena drawing placeholder]",
+                color=(128, 128, 128),
+            )
+
+    def update(self) -> None:
+        """Push live data each frame."""
+        import dearpygui.dearpygui as dpg
 
         # Poll FicTrac for real fly position
         if self._comms is not None:
@@ -97,70 +146,61 @@ class TrackingPanel:
                 self._real_x = frame.x_rad * ball_r
                 self._real_y = frame.y_rad * ball_r
 
-        # Top-down arena view (text placeholder for now)
-        imgui.text("Arena Top-Down View:")
-        imgui.separator()
-
         # Real fly
-        imgui.text_colored("Real Fly (FicTrac):", 0.3, 0.8, 1.0)
-        imgui.text(
+        dpg.set_value(
+            "trk_real_pos",
             f"  Pos:     ({self._real_x:6.1f}, "
             f"{self._real_y:6.1f}) mm",
         )
-        imgui.text(
+        dpg.set_value(
+            "trk_real_heading",
             f"  Heading: {self._real_heading_deg:6.1f} deg",
         )
 
-        imgui.spacing()
-
         # Virtual fly
-        imgui.text_colored(
-            "Virtual Fly (Stimulus):", 0.2, 0.9, 0.2,
-        )
-        imgui.text(
+        dpg.set_value(
+            "trk_virt_pos",
             f"  Pos:     ({self._virtual_x:6.1f}, "
             f"{self._virtual_y:6.1f}) mm",
         )
-        imgui.text(
-            f"  Heading: {self._virtual_heading_deg:6.1f} deg",
+        dpg.set_value(
+            "trk_virt_heading",
+            f"  Heading: "
+            f"{self._virtual_heading_deg:6.1f} deg",
         )
 
-        imgui.separator()
-
-        # Relationship metrics
-        imgui.text("Relationship:")
-        imgui.text(
+        # Relationship
+        dpg.set_value(
+            "trk_distance",
             f"  Distance:       {self.distance_mm:6.1f} mm",
         )
-        imgui.text(
+        dpg.set_value(
+            "trk_heading_offset",
             f"  Heading offset: "
             f"{self.heading_offset_deg:+6.1f} deg",
         )
 
         # Visual indicator
-        imgui.separator()
         d = self.distance_mm
         if d < 5.0:
-            imgui.text_colored(
+            dpg.set_value(
+                "trk_indicator",
                 "Flies are close together",
-                0.2, 0.9, 0.2,
+            )
+            dpg.configure_item(
+                "trk_indicator", color=(51, 230, 51),
             )
         elif d < self._arena_radius:
-            imgui.text_colored(
-                "Moderate separation",
-                0.9, 0.9, 0.2,
+            dpg.set_value(
+                "trk_indicator", "Moderate separation",
+            )
+            dpg.configure_item(
+                "trk_indicator", color=(230, 230, 51),
             )
         else:
-            imgui.text_colored(
-                "Flies are far apart",
-                0.9, 0.3, 0.3,
+            dpg.set_value(
+                "trk_indicator", "Flies are far apart",
             )
-
-        # Placeholder for canvas-based top-down drawing
-        imgui.spacing()
-        imgui.text_colored(
-            "[Top-down arena drawing placeholder]",
-            0.5, 0.5, 0.5,
-        )
-
-        imgui.end()
+            dpg.configure_item(
+                "trk_indicator", color=(230, 77, 77),
+            )

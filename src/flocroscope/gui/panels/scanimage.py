@@ -37,6 +37,11 @@ class ScanImagePanel:
         self._trial_count: int = 0
         self._frame_count: int = 0
         self._acquiring: bool = False
+        self.group_tag = "grp_scanimage"
+
+    @property
+    def window_tag(self) -> str:
+        return self.group_tag
 
     # -- public helpers for tests --
 
@@ -48,33 +53,78 @@ class ScanImagePanel:
     def frame_count(self) -> int:
         return self._frame_count
 
-    # -- drawing --
+    # -- widget creation --
 
-    def draw(self) -> None:
-        """Render the ScanImage panel."""
-        import imgui
+    def build(self, parent: int | str = 0) -> None:
+        """Create all DearPyGui widgets (called once)."""
+        import dearpygui.dearpygui as dpg
 
-        imgui.begin("ScanImage / 2-Photon")
+        with dpg.group(
+            parent=parent, tag=self.group_tag,
+        ):
+            dpg.add_text(
+                "ScanImage not connected",
+                tag="si_inactive",
+                color=(153, 153, 153),
+            )
+            dpg.add_text(
+                "Configure comms.scanimage_port to enable.",
+                tag="si_hint",
+            )
+
+            with dpg.group(
+                tag="si_active", show=False,
+            ):
+                dpg.add_text("", tag="si_conn_status")
+                dpg.add_separator()
+
+                dpg.add_text(
+                    "", tag="si_acq_status",
+                )
+                dpg.add_spacer(height=4)
+                dpg.add_text("", tag="si_trials")
+                dpg.add_text("", tag="si_frames")
+
+                dpg.add_separator()
+                dpg.add_text("Event Log:")
+                for i in range(10):
+                    dpg.add_text(
+                        "", tag=f"si_ev_{i}",
+                    )
+                dpg.add_text(
+                    "No events yet",
+                    tag="si_no_events",
+                    color=(153, 153, 153),
+                )
+
+    def update(self) -> None:
+        """Push live data each frame."""
+        import dearpygui.dearpygui as dpg
 
         if self._comms is None:
-            imgui.text_colored(
-                "ScanImage not connected", 0.6, 0.6, 0.6,
-            )
-            imgui.text(
-                "Configure comms.scanimage_port to enable.",
-            )
-            imgui.end()
+            dpg.show_item("si_inactive")
+            dpg.show_item("si_hint")
+            dpg.hide_item("si_active")
             return
+
+        dpg.hide_item("si_inactive")
+        dpg.hide_item("si_hint")
+        dpg.show_item("si_active")
 
         status = self._comms.status
         connected = status.get("scanimage", False)
         if connected:
-            imgui.text_colored(
-                "Connected", 0.2, 0.9, 0.2,
+            dpg.set_value("si_conn_status", "Connected")
+            dpg.configure_item(
+                "si_conn_status", color=(51, 230, 51),
             )
         else:
-            imgui.text_colored(
-                "Waiting for ScanImage...", 0.9, 0.6, 0.2,
+            dpg.set_value(
+                "si_conn_status",
+                "Waiting for ScanImage...",
+            )
+            dpg.configure_item(
+                "si_conn_status", color=(230, 153, 51),
             )
 
         # Poll events
@@ -94,31 +144,42 @@ class ScanImagePanel:
                 elif ev.event_type == "frame_clock":
                     self._frame_count += 1
 
-        imgui.separator()
-
         # Acquisition status
         if self._acquiring:
-            imgui.text_colored(
-                "ACQUIRING", 0.2, 0.9, 0.2,
+            dpg.set_value("si_acq_status", "ACQUIRING")
+            dpg.configure_item(
+                "si_acq_status", color=(51, 230, 51),
             )
         else:
-            imgui.text_colored(
-                "IDLE", 0.9, 0.9, 0.2,
+            dpg.set_value("si_acq_status", "IDLE")
+            dpg.configure_item(
+                "si_acq_status", color=(230, 230, 51),
             )
 
-        imgui.spacing()
-        imgui.text(f"Trials:      {self._trial_count}")
-        imgui.text(f"Frame ticks: {self._frame_count}")
+        dpg.set_value(
+            "si_trials",
+            f"Trials:      {self._trial_count}",
+        )
+        dpg.set_value(
+            "si_frames",
+            f"Frame ticks: {self._frame_count}",
+        )
 
         # Event log
-        imgui.separator()
-        imgui.text("Event Log:")
-        if self._event_log:
-            for line in list(self._event_log)[-10:]:
-                imgui.bullet_text(line)
+        log_list = list(self._event_log)[-10:]
+        if log_list:
+            dpg.hide_item("si_no_events")
+            for i in range(10):
+                if i < len(log_list):
+                    dpg.set_value(
+                        f"si_ev_{i}",
+                        f"  {log_list[i]}",
+                    )
+                    dpg.show_item(f"si_ev_{i}")
+                else:
+                    dpg.set_value(f"si_ev_{i}", "")
+                    dpg.hide_item(f"si_ev_{i}")
         else:
-            imgui.text_colored(
-                "No events yet", 0.6, 0.6, 0.6,
-            )
-
-        imgui.end()
+            dpg.show_item("si_no_events")
+            for i in range(10):
+                dpg.hide_item(f"si_ev_{i}")

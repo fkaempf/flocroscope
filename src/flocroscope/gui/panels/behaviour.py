@@ -3,12 +3,21 @@
 Combines experiment-level status from all subsystems into a single
 dashboard: current experiment type, hardware readiness, active
 recording state, and a checklist of connected components.
+
+.. note::
+
+   In the new single-window layout the experiment type selector
+   and hardware indicators live in the top bar of ``app.py``.
+   This panel is retained for backward compatibility and for
+   standalone/testing use.
 """
 
 from __future__ import annotations
 
 import logging
 from typing import TYPE_CHECKING
+
+from flocroscope.gui.layout import ExperimentMode
 
 if TYPE_CHECKING:
     from flocroscope.comms.hub import CommsHub
@@ -17,14 +26,8 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-# Experiment types the system supports.
-EXPERIMENT_TYPES = [
-    "Behavior",
-    "VR",
-    "2P",
-    "2P+VR",
-    "Optogenetics",
-]
+# Backward-compatible re-export from layout.py.
+EXPERIMENT_TYPES = [m.value for m in ExperimentMode]
 
 
 class BehaviourPanel:
@@ -46,6 +49,11 @@ class BehaviourPanel:
         self._comms = comms
         self._session = session
         self._experiment_type_idx: int = 0
+        self.group_tag = "grp_behaviour"
+
+    @property
+    def window_tag(self) -> str:
+        return self.group_tag
 
     # -- public helpers --
 
@@ -61,89 +69,139 @@ class BehaviourPanel:
     def session(self, value: Session | None) -> None:
         self._session = value
 
-    # -- drawing --
+    # -- widget creation --
 
-    def draw(self) -> None:
-        """Render the behaviour dashboard panel."""
-        import imgui
+    def build(self, parent: int | str = 0) -> None:
+        """Create all DearPyGui widgets (called once)."""
+        import dearpygui.dearpygui as dpg
 
-        imgui.begin("Behaviour")
+        with dpg.group(
+            parent=parent, tag=self.group_tag,
+        ):
+            dpg.add_text("Experiment Type:")
+            dpg.add_combo(
+                items=EXPERIMENT_TYPES,
+                tag="beh_exp_type",
+                default_value=EXPERIMENT_TYPES[0],
+                callback=self._on_exp_type,
+            )
 
-        # Experiment type selector
-        imgui.text("Experiment Type:")
-        changed, self._experiment_type_idx = imgui.combo(
-            "##exp_type",
-            self._experiment_type_idx,
-            EXPERIMENT_TYPES,
-        )
+            dpg.add_separator()
+            dpg.add_text("Hardware Checklist:")
 
-        imgui.separator()
+            _hw = [
+                ("FicTrac (treadmill)", "fictrac"),
+                ("ScanImage (2P)", "scanimage"),
+                ("LED (optogenetics)", "led"),
+                ("Presenter", "presenter"),
+            ]
+            for label, ep in _hw:
+                dpg.add_text(
+                    f"  [ ] {label}",
+                    tag=f"beh_hw_{ep}",
+                )
+
+            dpg.add_separator()
+            dpg.add_text("Session:")
+            dpg.add_text(
+                "", tag="beh_session_status",
+            )
+            dpg.add_text(
+                "", tag="beh_session_trials",
+            )
+
+            dpg.add_separator()
+            dpg.add_text("Recording:")
+            dpg.add_text(
+                "", tag="beh_recording_status",
+            )
+
+    def update(self) -> None:
+        """Push live data each frame."""
+        import dearpygui.dearpygui as dpg
 
         # Hardware checklist
-        imgui.text("Hardware Checklist:")
-        self._draw_checklist_item(
-            "FicTrac (treadmill)", "fictrac",
-        )
-        self._draw_checklist_item(
-            "ScanImage (2P)", "scanimage",
-        )
-        self._draw_checklist_item(
-            "LED (optogenetics)", "led",
-        )
-        self._draw_checklist_item(
-            "Presenter", "presenter",
-        )
+        _hw = [
+            ("FicTrac (treadmill)", "fictrac"),
+            ("ScanImage (2P)", "scanimage"),
+            ("LED (optogenetics)", "led"),
+            ("Presenter", "presenter"),
+        ]
+        for label, ep in _hw:
+            if self._comms is not None:
+                status = self._comms.status
+                connected = status.get(ep, False)
+            else:
+                connected = False
 
-        imgui.separator()
+            if connected:
+                dpg.set_value(
+                    f"beh_hw_{ep}",
+                    f"  [x] {label}",
+                )
+                dpg.configure_item(
+                    f"beh_hw_{ep}",
+                    color=(51, 230, 51),
+                )
+            else:
+                dpg.set_value(
+                    f"beh_hw_{ep}",
+                    f"  [ ] {label}",
+                )
+                dpg.configure_item(
+                    f"beh_hw_{ep}",
+                    color=(128, 128, 128),
+                )
 
         # Session status
-        imgui.text("Session:")
         if self._session is not None:
-            imgui.text_colored(
-                "Active", 0.2, 0.9, 0.2,
+            dpg.set_value(
+                "beh_session_status", "Active",
             )
-            imgui.text(
+            dpg.configure_item(
+                "beh_session_status",
+                color=(51, 230, 51),
+            )
+            dpg.set_value(
+                "beh_session_trials",
                 f"  Trials: {self._session.trial_count}",
             )
         else:
-            imgui.text_colored(
-                "No active session", 0.6, 0.6, 0.6,
+            dpg.set_value(
+                "beh_session_status",
+                "No active session",
             )
+            dpg.configure_item(
+                "beh_session_status",
+                color=(153, 153, 153),
+            )
+            dpg.set_value("beh_session_trials", "")
 
         # Recording status
-        imgui.separator()
-        imgui.text("Recording:")
         if (
             self._session is not None
             and self._session.is_running
         ):
-            imgui.text_colored(
-                "RECORDING", 0.9, 0.2, 0.2,
+            dpg.set_value(
+                "beh_recording_status", "RECORDING",
+            )
+            dpg.configure_item(
+                "beh_recording_status",
+                color=(230, 51, 51),
             )
         else:
-            imgui.text_colored(
-                "Not recording", 0.6, 0.6, 0.6,
+            dpg.set_value(
+                "beh_recording_status", "Not recording",
+            )
+            dpg.configure_item(
+                "beh_recording_status",
+                color=(153, 153, 153),
             )
 
-        imgui.end()
+    # -- callbacks --
 
-    def _draw_checklist_item(
-        self, label: str, endpoint_name: str,
-    ) -> None:
-        """Draw a single hardware checklist row."""
-        import imgui
-
-        if self._comms is not None:
-            status = self._comms.status
-            connected = status.get(endpoint_name, False)
-        else:
-            connected = False
-
-        if connected:
-            imgui.text_colored(
-                f"  [x] {label}", 0.2, 0.9, 0.2,
-            )
-        else:
-            imgui.text_colored(
-                f"  [ ] {label}", 0.5, 0.5, 0.5,
+    def _on_exp_type(self, sender, app_data, user_data):
+        if app_data in EXPERIMENT_TYPES:
+            self._experiment_type_idx = (
+                EXPERIMENT_TYPES.index(app_data)
             )

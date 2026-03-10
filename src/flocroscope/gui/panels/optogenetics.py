@@ -40,6 +40,11 @@ class OptogeneticsPanel:
         self._channel: int = 0
         self._pulse_count: int = 0
         self._selected_preset: int = 0
+        self.group_tag = "grp_optogenetics"
+
+    @property
+    def window_tag(self) -> str:
+        return self.group_tag
 
     # -- public helpers for tests --
 
@@ -51,77 +56,151 @@ class OptogeneticsPanel:
     def intensity(self) -> float:
         return self._intensity
 
-    # -- drawing --
+    # -- widget creation --
 
-    def draw(self) -> None:
-        """Render the optogenetics panel."""
-        import imgui
+    def build(self, parent: int | str = 0) -> None:
+        """Create all DearPyGui widgets (called once)."""
+        import dearpygui.dearpygui as dpg
 
-        imgui.begin("Optogenetics / LED")
+        with dpg.group(
+            parent=parent, tag=self.group_tag,
+        ):
+            dpg.add_text(
+                "LED not connected",
+                tag="opto_inactive",
+                color=(153, 153, 153),
+            )
+            dpg.add_text(
+                "Configure comms.led_port to enable.",
+                tag="opto_hint",
+            )
+
+            with dpg.group(
+                tag="opto_active", show=False,
+            ):
+                dpg.add_text("", tag="opto_conn_status")
+                dpg.add_separator()
+
+                dpg.add_text("Quick Controls:")
+                with dpg.group(horizontal=True):
+                    dpg.add_button(
+                        label="ON",
+                        callback=self._on_led_on,
+                    )
+                    dpg.add_button(
+                        label="OFF",
+                        callback=self._on_led_off,
+                    )
+                    dpg.add_button(
+                        label="PULSE",
+                        callback=self._on_led_pulse,
+                    )
+
+                dpg.add_separator()
+                dpg.add_text("Parameters:")
+                dpg.add_slider_float(
+                    label="Intensity",
+                    tag="opto_intensity",
+                    default_value=self._intensity,
+                    min_value=0.0,
+                    max_value=1.0,
+                    callback=self._on_intensity,
+                )
+                dpg.add_slider_float(
+                    label="Pulse (ms)",
+                    tag="opto_duration",
+                    default_value=self._duration_ms,
+                    min_value=1.0,
+                    max_value=1000.0,
+                    callback=self._on_duration,
+                )
+                dpg.add_input_int(
+                    label="Channel",
+                    tag="opto_channel",
+                    default_value=self._channel,
+                    callback=self._on_channel,
+                )
+
+                dpg.add_separator()
+                dpg.add_text("Presets:")
+                for i, (label, cmd, inten, dur) in enumerate(
+                    _PRESETS,
+                ):
+                    dpg.add_button(
+                        label=label,
+                        callback=self._on_preset,
+                        user_data=i,
+                    )
+
+                dpg.add_separator()
+                dpg.add_text(
+                    "", tag="opto_pulse_count",
+                )
+
+    def update(self) -> None:
+        """Push live data each frame."""
+        import dearpygui.dearpygui as dpg
 
         if self._comms is None:
-            imgui.text_colored(
-                "LED not connected", 0.6, 0.6, 0.6,
-            )
-            imgui.text(
-                "Configure comms.led_port to enable.",
-            )
-            imgui.end()
+            dpg.show_item("opto_inactive")
+            dpg.show_item("opto_hint")
+            dpg.hide_item("opto_active")
             return
+
+        dpg.hide_item("opto_inactive")
+        dpg.hide_item("opto_hint")
+        dpg.show_item("opto_active")
 
         status = self._comms.status
         connected = status.get("led", False)
         if connected:
-            imgui.text_colored(
-                "Connected", 0.2, 0.9, 0.2,
+            dpg.set_value("opto_conn_status", "Connected")
+            dpg.configure_item(
+                "opto_conn_status", color=(51, 230, 51),
             )
         else:
-            imgui.text_colored(
+            dpg.set_value(
+                "opto_conn_status",
                 "Waiting for LED controller...",
-                0.9, 0.6, 0.2,
+            )
+            dpg.configure_item(
+                "opto_conn_status", color=(230, 153, 51),
             )
 
-        imgui.separator()
+        dpg.set_value(
+            "opto_pulse_count",
+            f"Pulses sent: {self._pulse_count}",
+        )
 
-        # Quick controls
-        imgui.text("Quick Controls:")
-        if imgui.button("ON"):
-            self._send("on", self._intensity)
-        imgui.same_line()
-        if imgui.button("OFF"):
-            self._send("off", 0.0)
-        imgui.same_line()
-        if imgui.button("PULSE"):
-            self._send(
-                "pulse", self._intensity, self._duration_ms,
-            )
+    # -- callbacks --
+
+    def _on_intensity(self, sender, app_data, user_data):
+        self._intensity = app_data
+
+    def _on_duration(self, sender, app_data, user_data):
+        self._duration_ms = app_data
+
+    def _on_channel(self, sender, app_data, user_data):
+        self._channel = app_data
+
+    def _on_led_on(self, sender, app_data, user_data):
+        self._send("on", self._intensity)
+
+    def _on_led_off(self, sender, app_data, user_data):
+        self._send("off", 0.0)
+
+    def _on_led_pulse(self, sender, app_data, user_data):
+        self._send(
+            "pulse", self._intensity, self._duration_ms,
+        )
+        self._pulse_count += 1
+
+    def _on_preset(self, sender, app_data, user_data):
+        idx = user_data
+        _, cmd, inten, dur = _PRESETS[idx]
+        self._send(cmd, inten, dur)
+        if cmd == "pulse":
             self._pulse_count += 1
-
-        # Parameters
-        imgui.separator()
-        imgui.text("Parameters:")
-        _, self._intensity = imgui.slider_float(
-            "Intensity", self._intensity, 0.0, 1.0,
-        )
-        _, self._duration_ms = imgui.slider_float(
-            "Pulse (ms)", self._duration_ms, 1.0, 1000.0,
-        )
-        _, self._channel = imgui.input_int(
-            "Channel", self._channel,
-        )
-
-        # Presets
-        imgui.separator()
-        imgui.text("Presets:")
-        for i, (label, cmd, inten, dur) in enumerate(_PRESETS):
-            if imgui.button(label):
-                self._send(cmd, inten, dur)
-                self._pulse_count += 1 if cmd == "pulse" else 0
-
-        imgui.separator()
-        imgui.text(f"Pulses sent: {self._pulse_count}")
-
-        imgui.end()
 
     def _send(
         self,
