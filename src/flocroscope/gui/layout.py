@@ -1,4 +1,4 @@
-"""Layout configuration: experiment mode → tab/panel mapping.
+"""Layout configuration: experiment mode -> tab/panel mapping.
 
 Defines which tabs and hardware sections are visible for each
 experiment type, so the GUI shows only what is relevant.
@@ -12,11 +12,10 @@ from enum import Enum
 class ExperimentMode(str, Enum):
     """Supported experiment types."""
 
-    BEHAVIOR = "Behavior"
+    BEHAVIOUR = "Behaviour"
     VR = "VR"
     TWO_PHOTON = "2P"
-    TWO_PHOTON_VR = "2P+VR"
-    OPTOGENETICS = "Optogenetics"
+    TWO_PHOTON_VR = "VR+2P"
 
 
 class Tab(str, Enum):
@@ -31,7 +30,7 @@ class Tab(str, Enum):
 
 # Which tabs are visible for each experiment mode.
 TAB_VISIBILITY: dict[ExperimentMode, set[Tab]] = {
-    ExperimentMode.BEHAVIOR: {
+    ExperimentMode.BEHAVIOUR: {
         Tab.SESSION,
         Tab.STIMULUS,
         Tab.HARDWARE,
@@ -56,11 +55,6 @@ TAB_VISIBILITY: dict[ExperimentMode, set[Tab]] = {
         Tab.CALIBRATION,
         Tab.SETTINGS,
     },
-    ExperimentMode.OPTOGENETICS: {
-        Tab.SESSION,
-        Tab.HARDWARE,
-        Tab.SETTINGS,
-    },
 }
 
 
@@ -68,12 +62,12 @@ TAB_VISIBILITY: dict[ExperimentMode, set[Tab]] = {
 # for each experiment mode.
 HARDWARE_SECTIONS: dict[str, set[ExperimentMode]] = {
     "FicTrac / Treadmill": {
-        ExperimentMode.BEHAVIOR,
+        ExperimentMode.BEHAVIOUR,
         ExperimentMode.VR,
         ExperimentMode.TWO_PHOTON_VR,
     },
     "Tracking": {
-        ExperimentMode.BEHAVIOR,
+        ExperimentMode.BEHAVIOUR,
         ExperimentMode.VR,
         ExperimentMode.TWO_PHOTON_VR,
     },
@@ -82,13 +76,15 @@ HARDWARE_SECTIONS: dict[str, set[ExperimentMode]] = {
         ExperimentMode.TWO_PHOTON_VR,
     },
     "Optogenetics / LED": {
-        ExperimentMode.OPTOGENETICS,
-    },
-    "Communications": {
-        ExperimentMode.BEHAVIOR,
+        ExperimentMode.BEHAVIOUR,
         ExperimentMode.VR,
         ExperimentMode.TWO_PHOTON,
         ExperimentMode.TWO_PHOTON_VR,
-        ExperimentMode.OPTOGENETICS,
+    },
+    "Communications": {
+        ExperimentMode.BEHAVIOUR,
+        ExperimentMode.VR,
+        ExperimentMode.TWO_PHOTON,
+        ExperimentMode.TWO_PHOTON_VR,
     },
 }
