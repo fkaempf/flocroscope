@@ -62,9 +62,34 @@ class TestStyleConstants:
         assert theme.SCROLLBAR_SIZE > 0
 
 
+class TestFontConstants:
+    """Tests for font-related constants."""
+
+    def test_font_size_positive(self) -> None:
+        assert theme.FONT_SIZE > 0
+
+    def test_font_search_paths_non_empty(self) -> None:
+        assert len(theme._FONT_SEARCH_PATHS) > 0
+
+    def test_find_font_returns_path_or_none(self) -> None:
+        result = theme._find_font()
+        if result is not None:
+            from pathlib import Path
+            assert isinstance(result, Path)
+            assert result.exists()
+
+
 class TestCreateTheme:
     """Tests for the create_theme() factory."""
 
     def test_create_theme_requires_dearpygui(self) -> None:
         pytest.importorskip("dearpygui")
         pytest.skip("viewport required for create_theme()")
+
+
+class TestLoadFont:
+    """Tests for the load_font() function."""
+
+    def test_load_font_requires_dearpygui(self) -> None:
+        pytest.importorskip("dearpygui")
+        pytest.skip("viewport required for load_font()")

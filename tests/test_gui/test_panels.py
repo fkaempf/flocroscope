@@ -1228,7 +1228,7 @@ class TestBehaviourPanelConstruction:
         assert panel._config is None
         assert panel._comms is None
         assert panel.session is None
-        assert panel.experiment_type == "Behavior"
+        assert panel.experiment_type == "Behaviour"
 
     def test_construction_with_config(self) -> None:
         """Panel stores config reference."""
@@ -1239,10 +1239,10 @@ class TestBehaviourPanelConstruction:
     def test_experiment_types_available(self) -> None:
         """All expected experiment types are listed."""
         assert "2P" in EXPERIMENT_TYPES
-        assert "Optogenetics" in EXPERIMENT_TYPES
-        assert "Behavior" in EXPERIMENT_TYPES
-        assert "2P+VR" in EXPERIMENT_TYPES
+        assert "Behaviour" in EXPERIMENT_TYPES
+        assert "VR+2P" in EXPERIMENT_TYPES
         assert "VR" in EXPERIMENT_TYPES
+        assert len(EXPERIMENT_TYPES) == 4
 
     def test_session_setter(self) -> None:
         """session property can be updated."""
@@ -1373,7 +1373,7 @@ class TestAppConstruction:
         from flocroscope.gui.app import FlocroscopeApp
         from flocroscope.gui.layout import ExperimentMode
         app = FlocroscopeApp()
-        assert app._experiment_mode is ExperimentMode.BEHAVIOR
+        assert app._experiment_mode is ExperimentMode.BEHAVIOUR
 
     def test_custom_config_stored(self) -> None:
         from flocroscope.gui.app import FlocroscopeApp
@@ -1394,7 +1394,7 @@ class TestAppConstruction:
         from flocroscope.gui.layout import ExperimentMode
         app = FlocroscopeApp()
         app._on_experiment_mode(None, "bogus", None)
-        assert app._experiment_mode is ExperimentMode.BEHAVIOR
+        assert app._experiment_mode is ExperimentMode.BEHAVIOUR
 
     def test_on_quit(self) -> None:
         from flocroscope.gui.app import FlocroscopeApp

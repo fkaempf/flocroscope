@@ -1,6 +1,6 @@
 """Tests for GUI layout configuration.
 
-Pure Python tests — no DearPyGui required.
+Pure Python tests -- no DearPyGui required.
 """
 
 from __future__ import annotations
@@ -19,18 +19,20 @@ class TestExperimentMode:
     """Tests for the ExperimentMode enum."""
 
     def test_all_modes_defined(self) -> None:
-        assert len(ExperimentMode) == 5
+        assert len(ExperimentMode) == 4
 
     def test_values(self) -> None:
-        assert ExperimentMode.BEHAVIOR.value == "Behavior"
+        assert ExperimentMode.BEHAVIOUR.value == "Behaviour"
         assert ExperimentMode.VR.value == "VR"
         assert ExperimentMode.TWO_PHOTON.value == "2P"
-        assert ExperimentMode.TWO_PHOTON_VR.value == "2P+VR"
-        assert ExperimentMode.OPTOGENETICS.value == "Optogenetics"
+        assert ExperimentMode.TWO_PHOTON_VR.value == "VR+2P"
 
     def test_string_construction(self) -> None:
         assert ExperimentMode("VR") is ExperimentMode.VR
-        assert ExperimentMode("2P+VR") is ExperimentMode.TWO_PHOTON_VR
+        assert (
+            ExperimentMode("VR+2P")
+            is ExperimentMode.TWO_PHOTON_VR
+        )
 
     def test_invalid_value_raises(self) -> None:
         with pytest.raises(ValueError):
@@ -75,9 +77,9 @@ class TestTabVisibility:
             ExperimentMode.TWO_PHOTON
         ]
 
-    def test_stimulus_not_in_opto(self) -> None:
-        assert Tab.STIMULUS not in TAB_VISIBILITY[
-            ExperimentMode.OPTOGENETICS
+    def test_stimulus_in_behaviour(self) -> None:
+        assert Tab.STIMULUS in TAB_VISIBILITY[
+            ExperimentMode.BEHAVIOUR
         ]
 
     def test_stimulus_in_vr(self) -> None:
@@ -90,9 +92,9 @@ class TestTabVisibility:
             ExperimentMode.VR
         ]
 
-    def test_calibration_not_in_behavior(self) -> None:
+    def test_calibration_not_in_behaviour(self) -> None:
         assert Tab.CALIBRATION not in TAB_VISIBILITY[
-            ExperimentMode.BEHAVIOR
+            ExperimentMode.BEHAVIOUR
         ]
 
     def test_calibration_in_2p_vr(self) -> None:
@@ -104,15 +106,18 @@ class TestTabVisibility:
         assert TAB_VISIBILITY[ExperimentMode.VR] == set(Tab)
 
     def test_2p_vr_has_all_tabs(self) -> None:
-        assert TAB_VISIBILITY[ExperimentMode.TWO_PHOTON_VR] == set(Tab)
+        assert (
+            TAB_VISIBILITY[ExperimentMode.TWO_PHOTON_VR]
+            == set(Tab)
+        )
 
 
 class TestHardwareSections:
     """Tests for HARDWARE_SECTIONS mapping."""
 
-    def test_fictrac_in_behavior(self) -> None:
+    def test_fictrac_in_behaviour(self) -> None:
         section = HARDWARE_SECTIONS["FicTrac / Treadmill"]
-        assert ExperimentMode.BEHAVIOR in section
+        assert ExperimentMode.BEHAVIOUR in section
         assert ExperimentMode.VR in section
         assert ExperimentMode.TWO_PHOTON_VR in section
 
@@ -125,9 +130,10 @@ class TestHardwareSections:
         assert ExperimentMode.TWO_PHOTON in section
         assert ExperimentMode.TWO_PHOTON_VR in section
 
-    def test_opto_only_in_opto(self) -> None:
+    def test_opto_in_all_modes(self) -> None:
         section = HARDWARE_SECTIONS["Optogenetics / LED"]
-        assert section == {ExperimentMode.OPTOGENETICS}
+        for mode in ExperimentMode:
+            assert mode in section
 
     def test_comms_in_all_modes(self) -> None:
         section = HARDWARE_SECTIONS["Communications"]
@@ -136,8 +142,7 @@ class TestHardwareSections:
 
     def test_tracking_in_treadmill_modes(self) -> None:
         section = HARDWARE_SECTIONS["Tracking"]
-        assert ExperimentMode.BEHAVIOR in section
+        assert ExperimentMode.BEHAVIOUR in section
         assert ExperimentMode.VR in section
         assert ExperimentMode.TWO_PHOTON_VR in section
         assert ExperimentMode.TWO_PHOTON not in section
-        assert ExperimentMode.OPTOGENETICS not in section
