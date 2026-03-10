@@ -1,12 +1,19 @@
 """Dark theme and styling for the Flocroscope GUI.
 
 Provides a professional dark theme with a teal accent colour,
-generous whitespace, and clean typography hierarchy.  Call
+generous whitespace, and clean typography.  Call
 :func:`create_theme` once after ``dpg.create_context()`` and bind
 the returned ID with ``dpg.bind_theme(theme_id)``.
+Call :func:`load_font` to bind a nice monospace font (Consolas
+preferred, with cross-platform fallbacks).
 """
 
 from __future__ import annotations
+
+import logging
+from pathlib import Path
+
+logger = logging.getLogger(__name__)
 
 # ------------------------------------------------------------------ #
 #  Colour palette  (0-255 RGBA)
@@ -214,3 +221,65 @@ def create_theme() -> int:
             )
 
     return theme_id
+
+
+# ------------------------------------------------------------------ #
+#  Font
+# ------------------------------------------------------------------ #
+
+FONT_SIZE = 16
+
+# Preferred fonts in order — first existing file wins.
+_FONT_SEARCH_PATHS = [
+    # Windows (via WSL or native)
+    Path("/mnt/c/Windows/Fonts/consola.ttf"),
+    Path("C:/Windows/Fonts/consola.ttf"),
+    Path("/mnt/c/Windows/Fonts/CascadiaMono.ttf"),
+    Path("C:/Windows/Fonts/CascadiaMono.ttf"),
+    # macOS
+    Path("/System/Library/Fonts/Menlo.ttc"),
+    Path("/System/Library/Fonts/SFMono-Regular.otf"),
+    # Linux common locations
+    Path("/usr/share/fonts/truetype/ubuntu/UbuntuMono-R.ttf"),
+    Path(
+        "/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf",
+    ),
+    Path(
+        "/usr/share/fonts/truetype/liberation/"
+        "LiberationMono-Regular.ttf",
+    ),
+]
+
+
+def _find_font() -> Path | None:
+    """Return the first font file found from the search list."""
+    for p in _FONT_SEARCH_PATHS:
+        if p.exists():
+            return p
+    return None
+
+
+def load_font(size: int = FONT_SIZE) -> int | None:
+    """Load and bind a monospace font.
+
+    Searches for Consolas, Cascadia Mono, Menlo, Ubuntu Mono,
+    or DejaVu Sans Mono.  Returns the font ID on success, or
+    ``None`` if no suitable font was found (DPG default is used).
+
+    Must be called after ``dpg.create_context()``.
+    """
+    import dearpygui.dearpygui as dpg
+
+    font_path = _find_font()
+    if font_path is None:
+        logger.info(
+            "No preferred font found; using DPG default",
+        )
+        return None
+
+    with dpg.font_registry():
+        font_id = dpg.add_font(str(font_path), size)
+
+    dpg.bind_font(font_id)
+    logger.info("Loaded font: %s (%dpt)", font_path.name, size)
+    return font_id
