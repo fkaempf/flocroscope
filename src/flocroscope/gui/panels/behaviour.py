@@ -4,6 +4,9 @@ Combines experiment-level status from all subsystems into a single
 dashboard: current experiment type, hardware readiness, active
 recording state, and a checklist of connected components.
 
+Also includes a launcher for the Fly Bowl Data Capture (FBDC)
+MATLAB GUI (https://github.com/kristinbranson/FlyBowlDataCapture).
+
 .. note::
 
    In the new single-window layout the experiment type selector
@@ -15,6 +18,7 @@ recording state, and a checklist of connected components.
 from __future__ import annotations
 
 import logging
+import subprocess
 from typing import TYPE_CHECKING
 
 from flocroscope.gui.layout import ExperimentMode
@@ -51,6 +55,13 @@ class BehaviourPanel:
         self._experiment_type_idx: int = 0
         self.group_tag = "grp_behaviour"
 
+        # FBDC launch state
+        self._fbdc_matlab_path: str = ""
+        self._fbdc_dir: str = ""
+        self._fbdc_process: subprocess.Popen | None = None
+        self._fbdc_running: bool = False
+        self._fbdc_launch_status: str = ""
+
     @property
     def window_tag(self) -> str:
         return self.group_tag
@@ -68,6 +79,11 @@ class BehaviourPanel:
     @session.setter
     def session(self, value: Session | None) -> None:
         self._session = value
+
+    @property
+    def fbdc_running(self) -> bool:
+        """Whether an FBDC/MATLAB process was launched."""
+        return self._fbdc_running
 
     # -- widget creation --
 
@@ -114,6 +130,54 @@ class BehaviourPanel:
             dpg.add_text("Recording:")
             dpg.add_text(
                 "", tag="beh_recording_status",
+            )
+
+            # -- Fly Bowl Data Capture (FBDC) section --
+            dpg.add_separator()
+            dpg.add_text("Fly Bowl Data Capture (FBDC):")
+            dpg.add_text(
+                "MATLAB GUI for behaviour capture "
+                "(FlyBowlDataCapture)",
+                color=(140, 140, 155),
+            )
+
+            dpg.add_input_text(
+                label="MATLAB executable",
+                tag="fbdc_matlab_path",
+                default_value="",
+                hint="path/to/matlab",
+                width=400,
+                callback=self._on_fbdc_matlab_change,
+            )
+            dpg.add_input_text(
+                label="FBDC directory",
+                tag="fbdc_dir",
+                default_value="",
+                hint="path/to/FlyBowlDataCapture",
+                width=400,
+                callback=self._on_fbdc_dir_change,
+            )
+            with dpg.group(horizontal=True):
+                dpg.add_button(
+                    label="Launch FBDC",
+                    tag="fbdc_launch_btn",
+                    callback=self._on_fbdc_launch,
+                    width=140,
+                )
+                dpg.add_button(
+                    label="Stop FBDC",
+                    tag="fbdc_stop_btn",
+                    callback=self._on_fbdc_stop,
+                    show=False,
+                    width=120,
+                )
+                dpg.add_text(
+                    "", tag="fbdc_launch_running",
+                    color=(102, 255, 102),
+                )
+            dpg.add_text(
+                "", tag="fbdc_launch_status",
+                wrap=400,
             )
 
     def update(self) -> None:
@@ -198,10 +262,140 @@ class BehaviourPanel:
                 color=(153, 153, 153),
             )
 
-    # -- callbacks --
+        # FBDC launch status
+        self._update_fbdc_status(dpg)
+
+    def _update_fbdc_status(self, dpg: object) -> None:
+        """Update the FBDC launch subprocess status."""
+        import dearpygui.dearpygui as dpg
+
+        # Poll subprocess
+        if self._fbdc_process is not None:
+            ret = self._fbdc_process.poll()
+            if ret is not None:
+                self._fbdc_running = False
+                if ret == 0:
+                    self._fbdc_launch_status = (
+                        "FBDC/MATLAB exited normally."
+                    )
+                else:
+                    self._fbdc_launch_status = (
+                        f"FBDC/MATLAB exited with "
+                        f"code {ret}."
+                    )
+                self._fbdc_process = None
+
+        if self._fbdc_running:
+            dpg.configure_item(
+                "fbdc_launch_btn", show=False,
+            )
+            dpg.configure_item(
+                "fbdc_stop_btn", show=True,
+            )
+            dpg.set_value(
+                "fbdc_launch_running", "Running...",
+            )
+        else:
+            dpg.configure_item(
+                "fbdc_launch_btn", show=True,
+            )
+            dpg.configure_item(
+                "fbdc_stop_btn", show=False,
+            )
+            dpg.set_value("fbdc_launch_running", "")
+
+        dpg.set_value(
+            "fbdc_launch_status",
+            self._fbdc_launch_status,
+        )
+
+    # -- callbacks ---------------------------------------------------- #
 
     def _on_exp_type(self, sender, app_data, user_data):
         if app_data in EXPERIMENT_TYPES:
             self._experiment_type_idx = (
                 EXPERIMENT_TYPES.index(app_data)
             )
+
+    def _on_fbdc_matlab_change(
+        self, sender, app_data, user_data,
+    ):
+        self._fbdc_matlab_path = app_data
+
+    def _on_fbdc_dir_change(
+        self, sender, app_data, user_data,
+    ):
+        self._fbdc_dir = app_data
+
+    def _on_fbdc_launch(
+        self, sender, app_data, user_data,
+    ):
+        self._launch_fbdc()
+
+    def _on_fbdc_stop(
+        self, sender, app_data, user_data,
+    ):
+        self._stop_fbdc()
+
+    # -- actions ------------------------------------------------------ #
+
+    def _launch_fbdc(self) -> None:
+        """Launch Fly Bowl Data Capture via MATLAB."""
+        import dearpygui.dearpygui as dpg
+
+        matlab_path = dpg.get_value("fbdc_matlab_path")
+        fbdc_dir = dpg.get_value("fbdc_dir")
+
+        if not matlab_path or not matlab_path.strip():
+            self._fbdc_launch_status = (
+                "No MATLAB executable path configured."
+            )
+            return
+
+        if not fbdc_dir or not fbdc_dir.strip():
+            self._fbdc_launch_status = (
+                "No FBDC directory configured."
+            )
+            return
+
+        matlab_path = matlab_path.strip()
+        fbdc_dir = fbdc_dir.strip()
+
+        matlab_cmd = (
+            f"cd('{fbdc_dir}'); FlyBowlDataCapture"
+        )
+        cmd = [matlab_path, "-r", matlab_cmd]
+
+        logger.info("Launching FBDC: %s", cmd)
+
+        try:
+            self._fbdc_process = subprocess.Popen(
+                cmd,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+            )
+            self._fbdc_running = True
+            self._fbdc_launch_status = (
+                f"Launched FBDC/MATLAB "
+                f"(PID {self._fbdc_process.pid})"
+            )
+            logger.info(
+                "FBDC started: PID %d",
+                self._fbdc_process.pid,
+            )
+        except Exception as exc:
+            self._fbdc_launch_status = (
+                f"Failed to launch: {exc}"
+            )
+            logger.error(
+                "Failed to launch FBDC: %s", exc,
+            )
+
+    def _stop_fbdc(self) -> None:
+        """Stop the running FBDC/MATLAB subprocess."""
+        if self._fbdc_process is not None:
+            self._fbdc_process.terminate()
+            self._fbdc_launch_status = (
+                "FBDC/MATLAB terminated."
+            )
+            logger.info("FBDC/MATLAB terminated")

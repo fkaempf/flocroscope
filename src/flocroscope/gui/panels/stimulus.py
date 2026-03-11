@@ -59,61 +59,80 @@ class StimulusPanel:
             dpg.add_separator()
 
             dpg.add_text("Arena & Fly:")
-            dpg.add_input_float(
-                label="Arena Radius (mm)",
-                tag="stim_arena_radius",
-                default_value=self._config.arena.radius_mm,
-                step=1.0,
-                step_fast=5.0,
-                callback=self._on_arena_radius,
-            )
-            dpg.add_input_float(
-                label="Fly Size (mm)",
-                tag="stim_fly_size",
-                default_value=self._config.fly_model.phys_length_mm,
-                step=0.1,
-                step_fast=0.5,
-                callback=self._on_fly_size,
-            )
+            with dpg.group(horizontal=True):
+                dpg.add_input_float(
+                    label="Radius (mm)",
+                    tag="stim_arena_radius",
+                    default_value=(
+                        self._config.arena.radius_mm
+                    ),
+                    step=1.0,
+                    step_fast=5.0,
+                    width=150,
+                    callback=self._on_arena_radius,
+                )
+                dpg.add_input_float(
+                    label="Fly Size (mm)",
+                    tag="stim_fly_size",
+                    default_value=(
+                        self._config.fly_model.phys_length_mm
+                    ),
+                    step=0.1,
+                    step_fast=0.5,
+                    width=150,
+                    callback=self._on_fly_size,
+                )
 
             dpg.add_separator()
             dpg.add_text("Camera:")
-            dpg.add_input_float(
-                label="FOV X (deg)",
-                tag="stim_fov_x",
-                default_value=self._config.camera.fov_x_deg,
-                step=5.0,
-                step_fast=10.0,
-                callback=self._on_fov_x,
-            )
-
-            proj_modes = [
-                "perspective", "equirect", "equidistant",
-            ]
-            dpg.add_combo(
-                items=proj_modes,
-                label="Projection",
-                tag="stim_projection",
-                default_value=self._config.camera.projection,
-                callback=self._on_projection,
-            )
+            with dpg.group(horizontal=True):
+                dpg.add_input_float(
+                    label="FOV X (deg)",
+                    tag="stim_fov_x",
+                    default_value=(
+                        self._config.camera.fov_x_deg
+                    ),
+                    step=5.0,
+                    step_fast=10.0,
+                    width=150,
+                    callback=self._on_fov_x,
+                )
+                proj_modes = [
+                    "perspective", "equirect", "equidistant",
+                ]
+                dpg.add_combo(
+                    items=proj_modes,
+                    label="Projection",
+                    tag="stim_projection",
+                    default_value=(
+                        self._config.camera.projection
+                    ),
+                    width=150,
+                    callback=self._on_projection,
+                )
 
             dpg.add_separator()
             dpg.add_text("Movement:")
-            dpg.add_checkbox(
-                label="Autonomous Mode",
-                tag="stim_autonomous",
-                default_value=self._config.autonomous.enabled,
-                callback=self._on_autonomous,
-            )
-            dpg.add_input_float(
-                label="Speed (mm/s)",
-                tag="stim_speed",
-                default_value=self._config.movement.speed_mm_s,
-                step=1.0,
-                step_fast=5.0,
-                callback=self._on_speed,
-            )
+            with dpg.group(horizontal=True):
+                dpg.add_checkbox(
+                    label="Autonomous",
+                    tag="stim_autonomous",
+                    default_value=(
+                        self._config.autonomous.enabled
+                    ),
+                    callback=self._on_autonomous,
+                )
+                dpg.add_input_float(
+                    label="Speed (mm/s)",
+                    tag="stim_speed",
+                    default_value=(
+                        self._config.movement.speed_mm_s
+                    ),
+                    step=1.0,
+                    step_fast=5.0,
+                    width=150,
+                    callback=self._on_speed,
+                )
 
             dpg.add_separator()
             dpg.add_text("Collision:")

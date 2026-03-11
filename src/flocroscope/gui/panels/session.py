@@ -43,6 +43,7 @@ class SessionPanel:
         self._notes = ""
         self._status_msg = ""
         self._flomington_lookup_done = False
+        self._recent_sessions: list[str] = []
         self.group_tag = "grp_session"
 
     @property
@@ -53,6 +54,15 @@ class SessionPanel:
     def flomington_client(self) -> FlomingtonClient | None:
         """The Flomington client, if configured."""
         return self._flomington
+
+    def set_experimenter(self, name: str) -> None:
+        """Set the experimenter field (e.g. from logged-in user)."""
+        self._experimenter = name
+        try:
+            import dearpygui.dearpygui as dpg
+            dpg.set_value("sess_experimenter", name)
+        except Exception:
+            pass
 
     def build(self, parent: int | str = 0) -> None:
         """Create all DearPyGui widgets (called once)."""
@@ -82,7 +92,7 @@ class SessionPanel:
                     label="Notes",
                     tag="sess_notes",
                     multiline=True,
-                    height=200,
+                    height=80,
                     callback=self._on_notes,
                 )
 
@@ -156,6 +166,22 @@ class SessionPanel:
 
             dpg.add_separator()
             dpg.add_text("", tag="sess_status_msg")
+
+            # Recent sessions
+            with dpg.collapsing_header(
+                label="Recent Sessions",
+                default_open=False,
+            ):
+                for i in range(5):
+                    dpg.add_text(
+                        "", tag=f"sess_recent_{i}",
+                        color=(140, 140, 155),
+                    )
+                dpg.add_text(
+                    "No recent sessions",
+                    tag="sess_no_recent",
+                    color=(100, 100, 115),
+                )
 
     def update(self) -> None:
         """Push live data each frame."""
@@ -322,9 +348,41 @@ class SessionPanel:
             return
         self._session.stop()
         path = self._session.save()
+        summary = self._session.summary()
+        label = (
+            f"{summary['session_id']} — "
+            f"{summary['trial_count']} trials, "
+            f"{summary['total_duration_s']:.0f}s"
+        )
+        self._recent_sessions.insert(0, label)
+        self._recent_sessions = self._recent_sessions[:5]
+        self._update_recent_display()
         self._status_msg = (
             f"Session stopped, saved to {path}"
         )
+
+    def _update_recent_display(self) -> None:
+        """Update recent sessions list in the GUI."""
+        try:
+            import dearpygui.dearpygui as dpg
+            if self._recent_sessions:
+                dpg.hide_item("sess_no_recent")
+                for i in range(5):
+                    if i < len(self._recent_sessions):
+                        dpg.set_value(
+                            f"sess_recent_{i}",
+                            self._recent_sessions[i],
+                        )
+                        dpg.show_item(f"sess_recent_{i}")
+                    else:
+                        dpg.set_value(f"sess_recent_{i}", "")
+                        dpg.hide_item(f"sess_recent_{i}")
+            else:
+                dpg.show_item("sess_no_recent")
+                for i in range(5):
+                    dpg.hide_item(f"sess_recent_{i}")
+        except Exception:
+            pass
 
     def _lookup_from_flomington(self) -> None:
         """Look up fly/cross info from Flomington."""

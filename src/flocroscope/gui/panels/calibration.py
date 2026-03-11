@@ -72,14 +72,11 @@ class CalibrationPanel:
             dpg.add_text("", tag="cal_projector")
             dpg.add_text("", tag="cal_mode")
             dpg.add_text("", tag="cal_exposure")
-            dpg.add_spacer(height=4)
-
             dpg.add_text("Intrinsic Files:")
             dpg.add_separator()
             dpg.add_text("", tag="cal_intrinsic_type")
             for i in range(3):
                 dpg.add_text("", tag=f"cal_file_{i}")
-            dpg.add_spacer(height=4)
 
             dpg.add_text(
                 "", tag="cal_progress",
@@ -96,7 +93,6 @@ class CalibrationPanel:
             dpg.add_text("", tag="cal_status", wrap=400)
             dpg.add_text("", tag="cal_rms")
 
-            dpg.add_spacer(height=16)
             dpg.add_separator()
             dpg.add_text("Warp Circle Test:")
             dpg.add_text(

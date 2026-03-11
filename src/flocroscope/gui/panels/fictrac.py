@@ -4,12 +4,16 @@ Dedicated panel for monitoring ball-tracking data from FicTrac,
 displaying heading, speed, integrated position, and ball radius
 configuration.  Provides a richer view than the summary line in
 :class:`CommsPanel`.
+
+Also includes controls to launch and stop the FicTrac executable
+directly from the GUI.
 """
 
 from __future__ import annotations
 
 import logging
 import math
+import subprocess
 from collections import deque
 from typing import TYPE_CHECKING
 
@@ -24,7 +28,7 @@ _HISTORY_LEN = 200
 
 
 class FicTracPanel:
-    """Panel for live FicTrac treadmill data.
+    """Panel for live FicTrac treadmill data and launch controls.
 
     Args:
         comms: Optional CommsHub that owns the FicTrac endpoint.
@@ -48,6 +52,13 @@ class FicTracPanel:
         self._frames_received: int = 0
         self.group_tag = "grp_fictrac"
 
+        # FicTrac launch state
+        self._ft_exe_path: str = ""
+        self._ft_config_path: str = ""
+        self._ft_process: subprocess.Popen | None = None
+        self._ft_running: bool = False
+        self._ft_launch_status: str = ""
+
     @property
     def window_tag(self) -> str:
         return self.group_tag
@@ -57,6 +68,11 @@ class FicTracPanel:
     @property
     def frames_received(self) -> int:
         return self._frames_received
+
+    @property
+    def ft_running(self) -> bool:
+        """Whether a FicTrac process was launched from this panel."""
+        return self._ft_running
 
     # -- widget creation --
 
@@ -100,6 +116,49 @@ class FicTracPanel:
                     color=(153, 153, 153),
                 )
 
+            # -- Launch FicTrac section --
+            dpg.add_separator()
+            dpg.add_text("Launch FicTrac:")
+
+            dpg.add_input_text(
+                label="Executable",
+                tag="ft_exe_path",
+                default_value="",
+                hint="path/to/fictrac",
+                width=400,
+                callback=self._on_exe_path_change,
+            )
+            dpg.add_input_text(
+                label="Config file",
+                tag="ft_config_path",
+                default_value="",
+                hint="path/to/config.txt",
+                width=400,
+                callback=self._on_config_path_change,
+            )
+            with dpg.group(horizontal=True):
+                dpg.add_button(
+                    label="Launch FicTrac",
+                    tag="ft_launch_btn",
+                    callback=self._on_launch,
+                    width=160,
+                )
+                dpg.add_button(
+                    label="Stop FicTrac",
+                    tag="ft_stop_btn",
+                    callback=self._on_stop,
+                    show=False,
+                    width=140,
+                )
+                dpg.add_text(
+                    "", tag="ft_launch_running",
+                    color=(102, 255, 102),
+                )
+            dpg.add_text(
+                "", tag="ft_launch_status",
+                wrap=400,
+            )
+
     def update(self) -> None:
         """Push live data each frame."""
         import dearpygui.dearpygui as dpg
@@ -108,11 +167,17 @@ class FicTracPanel:
             dpg.show_item("ft_inactive")
             dpg.show_item("ft_hint")
             dpg.hide_item("ft_active")
-            return
+        else:
+            dpg.hide_item("ft_inactive")
+            dpg.hide_item("ft_hint")
+            dpg.show_item("ft_active")
+            self._update_comms(dpg)
 
-        dpg.hide_item("ft_inactive")
-        dpg.hide_item("ft_hint")
-        dpg.show_item("ft_active")
+        self._update_launch_status(dpg)
+
+    def _update_comms(self, dpg: object) -> None:
+        """Update the comms monitoring section."""
+        import dearpygui.dearpygui as dpg
 
         status = self._comms.status
         connected = status.get("fictrac", False)
@@ -188,3 +253,117 @@ class FicTracPanel:
             )
         else:
             dpg.set_value("ft_sparkline", "No data yet")
+
+    def _update_launch_status(self, dpg: object) -> None:
+        """Update the launch subprocess status."""
+        import dearpygui.dearpygui as dpg
+
+        # Poll subprocess
+        if self._ft_process is not None:
+            ret = self._ft_process.poll()
+            if ret is not None:
+                self._ft_running = False
+                if ret == 0:
+                    self._ft_launch_status = (
+                        "FicTrac exited normally."
+                    )
+                else:
+                    self._ft_launch_status = (
+                        f"FicTrac exited with code {ret}."
+                    )
+                self._ft_process = None
+
+        if self._ft_running:
+            dpg.configure_item(
+                "ft_launch_btn", show=False,
+            )
+            dpg.configure_item(
+                "ft_stop_btn", show=True,
+            )
+            dpg.set_value(
+                "ft_launch_running", "Running...",
+            )
+        else:
+            dpg.configure_item(
+                "ft_launch_btn", show=True,
+            )
+            dpg.configure_item(
+                "ft_stop_btn", show=False,
+            )
+            dpg.set_value("ft_launch_running", "")
+
+        dpg.set_value(
+            "ft_launch_status", self._ft_launch_status,
+        )
+
+    # -- callbacks ---------------------------------------------------- #
+
+    def _on_exe_path_change(
+        self, sender, app_data, user_data,
+    ):
+        self._ft_exe_path = app_data
+
+    def _on_config_path_change(
+        self, sender, app_data, user_data,
+    ):
+        self._ft_config_path = app_data
+
+    def _on_launch(self, sender, app_data, user_data):
+        self._launch_fictrac()
+
+    def _on_stop(self, sender, app_data, user_data):
+        self._stop_fictrac()
+
+    # -- actions ------------------------------------------------------ #
+
+    def _launch_fictrac(self) -> None:
+        """Launch FicTrac via the configured executable path."""
+        import dearpygui.dearpygui as dpg
+
+        exe_path = dpg.get_value("ft_exe_path")
+        config_path = dpg.get_value("ft_config_path")
+
+        if not exe_path or not exe_path.strip():
+            self._ft_launch_status = (
+                "No FicTrac executable path configured."
+            )
+            return
+
+        exe_path = exe_path.strip()
+        cmd: list[str] = [exe_path]
+        if config_path and config_path.strip():
+            cmd.append(config_path.strip())
+
+        logger.info("Launching FicTrac: %s", cmd)
+
+        try:
+            self._ft_process = subprocess.Popen(
+                cmd,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+            )
+            self._ft_running = True
+            self._ft_launch_status = (
+                f"Launched FicTrac "
+                f"(PID {self._ft_process.pid})"
+            )
+            logger.info(
+                "FicTrac started: PID %d",
+                self._ft_process.pid,
+            )
+        except Exception as exc:
+            self._ft_launch_status = (
+                f"Failed to launch: {exc}"
+            )
+            logger.error(
+                "Failed to launch FicTrac: %s", exc,
+            )
+
+    def _stop_fictrac(self) -> None:
+        """Stop the running FicTrac subprocess."""
+        if self._ft_process is not None:
+            self._ft_process.terminate()
+            self._ft_launch_status = (
+                "FicTrac terminated."
+            )
+            logger.info("FicTrac terminated")
