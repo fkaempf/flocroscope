@@ -28,6 +28,16 @@ class Tab(str, Enum):
     SETTINGS = "Settings"
 
 
+class HardwareSection(str, Enum):
+    """Hardware collapsing section names in the Hardware tab."""
+
+    FICTRAC = "FicTrac / Treadmill"
+    TRACKING = "Tracking"
+    SCANIMAGE = "ScanImage / 2-Photon"
+    OPTOGENETICS = "Optogenetics / LED"
+    COMMUNICATIONS = "Communications"
+
+
 # Which tabs are visible for each experiment mode.
 TAB_VISIBILITY: dict[ExperimentMode, set[Tab]] = {
     ExperimentMode.BEHAVIOUR: {
@@ -60,29 +70,33 @@ TAB_VISIBILITY: dict[ExperimentMode, set[Tab]] = {
 
 # Which hardware collapsing sections appear in the Hardware tab
 # for each experiment mode.
+#
+# Behaviour: LED-only experiments (no ball tracking, no presenter).
+# VR: Always needs FicTrac (ball tracking is essential for VR),
+#     plus tracking, comms, and optionally opto/scanimage.
+# 2P (Imaging): ScanImage + optogenetics + FicTrac + tracking.
+# VR+2P: Everything.
 HARDWARE_SECTIONS: dict[str, set[ExperimentMode]] = {
-    "FicTrac / Treadmill": {
-        ExperimentMode.BEHAVIOUR,
-        ExperimentMode.VR,
-        ExperimentMode.TWO_PHOTON_VR,
-    },
-    "Tracking": {
-        ExperimentMode.BEHAVIOUR,
-        ExperimentMode.VR,
-        ExperimentMode.TWO_PHOTON_VR,
-    },
-    "ScanImage / 2-Photon": {
-        ExperimentMode.TWO_PHOTON,
-        ExperimentMode.TWO_PHOTON_VR,
-    },
-    "Optogenetics / LED": {
-        ExperimentMode.BEHAVIOUR,
+    HardwareSection.FICTRAC: {
         ExperimentMode.VR,
         ExperimentMode.TWO_PHOTON,
         ExperimentMode.TWO_PHOTON_VR,
     },
-    "Communications": {
+    HardwareSection.TRACKING: {
+        ExperimentMode.VR,
+        ExperimentMode.TWO_PHOTON,
+        ExperimentMode.TWO_PHOTON_VR,
+    },
+    HardwareSection.SCANIMAGE: {
+        ExperimentMode.TWO_PHOTON,
+        ExperimentMode.TWO_PHOTON_VR,
+    },
+    HardwareSection.OPTOGENETICS: {
         ExperimentMode.BEHAVIOUR,
+        ExperimentMode.TWO_PHOTON,
+        ExperimentMode.TWO_PHOTON_VR,
+    },
+    HardwareSection.COMMUNICATIONS: {
         ExperimentMode.VR,
         ExperimentMode.TWO_PHOTON,
         ExperimentMode.TWO_PHOTON_VR,

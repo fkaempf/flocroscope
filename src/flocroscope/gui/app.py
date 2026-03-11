@@ -17,6 +17,7 @@ from typing import TYPE_CHECKING
 from flocroscope.gui.layout import (
     ExperimentMode,
     HARDWARE_SECTIONS,
+    HardwareSection,
     Tab,
     TAB_VISIBILITY,
 )
