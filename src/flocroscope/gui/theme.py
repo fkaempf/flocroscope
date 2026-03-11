@@ -1,7 +1,7 @@
 """Dark theme and styling for the Flocroscope GUI.
 
-Provides a professional dark theme with a teal accent colour,
-generous whitespace, and clean typography.  Call
+Provides a Flomington-inspired dark theme with a violet accent,
+generous rounding, and a glassy scientific-luxe aesthetic.  Call
 :func:`create_theme` once after ``dpg.create_context()`` and bind
 the returned ID with ``dpg.bind_theme(theme_id)``.
 Call :func:`load_font` to bind a nice monospace font (Consolas
@@ -19,58 +19,60 @@ logger = logging.getLogger(__name__)
 #  Colour palette  (0-255 RGBA)
 # ------------------------------------------------------------------ #
 
-# Background tiers (darkest → lightest)
-BG_DARKEST = (18, 18, 22, 255)
-BG_DARK = (25, 25, 32, 255)
-BG_PANEL = (34, 34, 42, 255)
-BG_ELEVATED = (42, 42, 52, 255)
+# Background tiers (darkest -> lightest)
+BG_DARKEST = (9, 9, 11, 255)
+BG_DARK = (17, 17, 19, 255)
+BG_PANEL = (24, 24, 28, 255)
+BG_ELEVATED = (32, 32, 38, 255)
 
 # Borders & separators
-BORDER = (55, 55, 68, 255)
-SEPARATOR = (48, 48, 58, 255)
+BORDER = (44, 44, 52, 255)
+SEPARATOR = (38, 38, 45, 255)
 
 # Text hierarchy
-TEXT_PRIMARY = (220, 220, 228, 255)
-TEXT_SECONDARY = (140, 140, 155, 255)
-TEXT_DISABLED = (85, 85, 100, 255)
+TEXT_PRIMARY = (240, 240, 245, 255)
+TEXT_SECONDARY = (161, 161, 170, 255)
+TEXT_DISABLED = (75, 75, 90, 255)
 
-# Accent — teal, used sparingly
-ACCENT = (0, 184, 172, 255)
-ACCENT_HOVER = (0, 210, 196, 255)
-ACCENT_ACTIVE = (0, 156, 146, 255)
+# Accent -- violet, used sparingly
+ACCENT = (139, 92, 246, 255)
+ACCENT_HOVER = (167, 125, 255, 255)
+ACCENT_ACTIVE = (114, 68, 220, 255)
 
 # Semantic status colours
 STATUS_OK = (72, 210, 120, 255)
-STATUS_WARN = (240, 190, 60, 255)
-STATUS_ERR = (220, 70, 70, 255)
+STATUS_WARN = (245, 195, 65, 255)
+STATUS_ERR = (235, 70, 70, 255)
 STATUS_OFF = (100, 100, 115, 255)
 
 # Tabs
-TAB_INACTIVE = (38, 38, 48, 255)
-TAB_HOVER = (50, 50, 62, 255)
+TAB_INACTIVE = (20, 20, 24, 255)
+TAB_HOVER = (36, 36, 42, 255)
 
 # Buttons
-BUTTON_BG = (45, 45, 58, 255)
-BUTTON_HOVER = (55, 55, 70, 255)
-BUTTON_ACTIVE = (0, 184, 172, 255)
+BUTTON_BG = (34, 34, 42, 255)
+BUTTON_HOVER = (44, 44, 54, 255)
+BUTTON_ACTIVE = (139, 92, 246, 255)
 
 # Inputs
-INPUT_BG = (22, 22, 30, 255)
-INPUT_BORDER = (55, 55, 68, 255)
+INPUT_BG = (14, 14, 18, 255)
+INPUT_BORDER = (44, 44, 52, 255)
 
 # ------------------------------------------------------------------ #
 #  Style constants
 # ------------------------------------------------------------------ #
 
-FRAME_PADDING = (10, 8)
-ITEM_SPACING = (10, 8)
-ITEM_INNER_SPACING = (8, 6)
-WINDOW_PADDING = (16, 16)
-FRAME_ROUNDING = 5.0
-TAB_ROUNDING = 4.0
-CHILD_ROUNDING = 4.0
-SCROLLBAR_SIZE = 12.0
+FRAME_PADDING = (10, 6)
+ITEM_SPACING = (10, 5)
+ITEM_INNER_SPACING = (8, 5)
+WINDOW_PADDING = (14, 10)
+FRAME_ROUNDING = 6.0
+TAB_ROUNDING = 6.0
+CHILD_ROUNDING = 12.0
+SCROLLBAR_SIZE = 10.0
 GRAB_MIN_SIZE = 10.0
+GRAB_ROUNDING = 4.0
+POPUP_ROUNDING = 8.0
 
 
 def create_theme() -> int:
@@ -219,6 +221,12 @@ def create_theme() -> int:
             dpg.add_theme_style(
                 dpg.mvStyleVar_GrabMinSize, GRAB_MIN_SIZE,
             )
+            dpg.add_theme_style(
+                dpg.mvStyleVar_GrabRounding, GRAB_ROUNDING,
+            )
+            dpg.add_theme_style(
+                dpg.mvStyleVar_PopupRounding, POPUP_ROUNDING,
+            )
 
     return theme_id
 
@@ -229,7 +237,7 @@ def create_theme() -> int:
 
 FONT_SIZE = 16
 
-# Preferred fonts in order — first existing file wins.
+# Preferred fonts in order -- first existing file wins.
 _FONT_SEARCH_PATHS = [
     # Windows (via WSL or native)
     Path("/mnt/c/Windows/Fonts/consola.ttf"),
