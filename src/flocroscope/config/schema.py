@@ -274,6 +274,8 @@ class CommsConfig:
         fictrac_ball_radius_mm: Physical ball radius for rad → mm
             conversion.
         scanimage_port: ScanImage TCP server port (0 = disabled).
+        scanimage_path: Path to the ScanImage executable or MATLAB
+            command used to launch ScanImage from the GUI.
         led_port: Optogenetics LED ZMQ PUB port (0 = disabled).
         presenter_host: Fly presenter controller host.
         presenter_port: Fly presenter ZMQ REQ port (0 = disabled).
@@ -285,6 +287,7 @@ class CommsConfig:
     fictrac_port: int = 2000
     fictrac_ball_radius_mm: float = 4.5
     scanimage_port: int = 5000
+    scanimage_path: str = ""
     led_port: int = 5001
     presenter_host: str = "localhost"
     presenter_port: int = 5002
